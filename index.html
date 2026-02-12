@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BodyBeat V0.6</title>
+<title>BodyBeat V0.7 FIX</title>
 
 <style>
 body {
@@ -19,13 +19,6 @@ video {
   height: 100%;
   object-fit: cover;
   transform: scaleX(-1);
-}
-
-canvas {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
 }
 
 .pad {
@@ -61,8 +54,8 @@ canvas {
   color:white;
   font-size:14px;
   z-index:5;
-  background:rgba(0,0,0,0.5);
-  padding:6px 10px;
+  background:rgba(0,0,0,0.6);
+  padding:8px 14px;
   border-radius:8px;
 }
 
@@ -87,7 +80,6 @@ canvas {
 <div id="status">Inicializando...</div>
 
 <video id="video" autoplay playsinline></video>
-<canvas id="canvas"></canvas>
 
 <div id="kick" class="pad">Kick</div>
 <div id="snare" class="pad">Snare</div>
@@ -101,7 +93,6 @@ import {
 } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0";
 
 const video = document.getElementById("video");
-const canvas = document.getElementById("canvas");
 const statusText = document.getElementById("status");
 const unlock = document.getElementById("unlock");
 
@@ -121,7 +112,7 @@ unlock.addEventListener("click", () => {
   unlock.style.display = "none";
 });
 
-function playDrum() {
+function playDrum(type) {
   if (!audioUnlocked) return;
 
   const osc = audioContext.createOscillator();
@@ -129,7 +120,11 @@ function playDrum() {
   osc.connect(gain);
   gain.connect(audioContext.destination);
 
-  osc.frequency.value = 200;
+  if(type === "kick") osc.frequency.value = 120;
+  if(type === "snare") osc.frequency.value = 220;
+  if(type === "hihat") osc.frequency.value = 600;
+  if(type === "clap") osc.frequency.value = 350;
+
   gain.gain.setValueAtTime(1, audioContext.currentTime);
   gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.25);
 
@@ -140,7 +135,7 @@ function playDrum() {
 let handLandmarker;
 let running = false;
 let lastTrigger = 0;
-const triggerDelay = 250;
+const triggerDelay = 200;
 
 async function init() {
   statusText.innerText = "Cargando modelo...";
@@ -158,7 +153,7 @@ async function init() {
     numHands: 1
   });
 
-  statusText.innerText = "Modelo cargado";
+  statusText.innerText = "Modelo cargado. Activando cámara...";
   startCamera();
 }
 
@@ -170,11 +165,9 @@ async function startCamera() {
   video.srcObject = stream;
 
   video.onloadeddata = () => {
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
     running = true;
     detectLoop();
-    statusText.style.display = "none";
+    statusText.innerText = "Detectando mano...";
   };
 }
 
@@ -200,10 +193,13 @@ async function detectLoop() {
     const results = handLandmarker.detectForVideo(video, nowInMs);
 
     if (results.landmarks.length > 0) {
+      statusText.style.display = "none";
+
       const landmarks = results.landmarks[0];
       const indexTip = landmarks[8];
 
-      const x = indexTip.x * window.innerWidth;
+      // compensamos espejo visual
+      const x = (1 - indexTip.x) * window.innerWidth;
       const y = indexTip.y * window.innerHeight;
 
       const now = Date.now();
@@ -215,11 +211,14 @@ async function detectLoop() {
         if (isInside(rect, x, y)) {
           pads[key].classList.add("active");
           if (now - lastTrigger > triggerDelay) {
-            playDrum();
+            playDrum(key);
             lastTrigger = now;
           }
         }
       }
+    } else {
+      statusText.style.display = "block";
+      statusText.innerText = "No se detecta mano";
     }
   }
 
