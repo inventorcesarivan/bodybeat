@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BodyBeat V3.3 - Manual Calibration</title>
+<title>BodyBeat V3.4 - LED HUD Mode</title>
 
 <style>
 body { margin:0; overflow:hidden; background:black; font-family:Arial, sans-serif; }
@@ -22,6 +22,7 @@ canvas {
   pointer-events:none;
 }
 
+/* Overlay only for audio unlock */
 #overlay {
   position:absolute;
   top:0; left:0;
@@ -29,32 +30,39 @@ canvas {
   background:black;
   color:white;
   display:flex;
-  flex-direction:column;
   align-items:center;
   justify-content:center;
-  text-align:center;
-  font-size:20px;
+  font-size:22px;
   z-index:20;
-  padding:30px;
 }
 
-button {
-  margin-top:20px;
-  padding:12px 20px;
-  font-size:16px;
-  border:none;
-  border-radius:8px;
+/* Mini HUD Button */
+#hud {
+  position:absolute;
+  top:15px;
+  right:15px;
+  z-index:30;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;
+  gap:6px;
+}
+
+#mirrorBtn {
+  background:rgba(0,255,150,0.15);
+  color:#00ff99;
+  border:1px solid rgba(0,255,150,0.6);
+  padding:6px 12px;
+  font-size:12px;
+  border-radius:20px;
   cursor:pointer;
+  backdrop-filter:blur(6px);
 }
 
-#invertBtn {
-  background:#00ff99;
-  color:black;
-}
-
-#startBtn {
-  background:white;
-  color:black;
+#mirrorState {
+  font-size:11px;
+  color:#00ffcc;
+  opacity:0.8;
 }
 
 #status {
@@ -70,17 +78,14 @@ button {
 </head>
 <body>
 
-<div id="overlay">
-  <div>
-    Si mueves tu mano hacia la derecha<br>
-    y la luz se mueve hacia la izquierda,<br>
-    presiona el botón para invertir la cámara.
-  </div>
-  <button id="invertBtn">Invertir cámara</button>
-  <button id="startBtn">Comenzar</button>
+<div id="overlay">Toca para activar sonido</div>
+
+<div id="hud">
+  <button id="mirrorBtn">Invertir eje</button>
+  <div id="mirrorState">Modo: Normal</div>
 </div>
 
-<div id="status">LED Tracking Mode</div>
+<div id="status">LED Tracking HUD Mode</div>
 
 <video id="video" autoplay playsinline></video>
 <canvas id="canvas"></canvas>
@@ -90,9 +95,8 @@ const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 const overlay = document.getElementById("overlay");
-const invertBtn = document.getElementById("invertBtn");
-const startBtn = document.getElementById("startBtn");
-const statusText = document.getElementById("status");
+const mirrorBtn = document.getElementById("mirrorBtn");
+const mirrorState = document.getElementById("mirrorState");
 
 const COLS = 8;
 const ROWS = 6;
@@ -101,16 +105,15 @@ let audioContext;
 let audioUnlocked = false;
 let mirrorX = false;
 
-invertBtn.addEventListener("click", () => {
-  mirrorX = !mirrorX;
-  invertBtn.innerText = mirrorX ? "Cámara invertida ✔" : "Invertir cámara";
-});
-
-startBtn.addEventListener("click", () => {
+overlay.addEventListener("click", () => {
   audioContext = new (window.AudioContext || window.webkitAudioContext)();
   audioUnlocked = true;
   overlay.style.display = "none";
-  statusText.innerText = "Sistema listo ✔ (Recarga para recalibrar)";
+});
+
+mirrorBtn.addEventListener("click", () => {
+  mirrorX = !mirrorX;
+  mirrorState.innerText = mirrorX ? "Modo: Invertido ✔" : "Modo: Normal";
 });
 
 function playTone(freq) {
