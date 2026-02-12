@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BodyBeat V0.5</title>
+<title>BodyBeat V0.6</title>
 
 <style>
 body {
@@ -28,7 +28,6 @@ canvas {
   pointer-events: none;
 }
 
-/* CONTENEDOR DERECHO */
 .pad-container {
   position: absolute;
   right: 20px;
@@ -40,7 +39,6 @@ canvas {
   z-index: 5;
 }
 
-/* PADS MÁS CHICOS */
 .pad {
   width: 80px;
   height: 80px;
@@ -92,7 +90,6 @@ canvas {
 <video id="video" autoplay playsinline></video>
 <canvas id="canvas"></canvas>
 
-<!-- NUEVA ESTRUCTURA DE PADS -->
 <div class="pad-container">
   <div id="kick" class="pad">Kick</div>
   <div id="snare" class="pad">Snare</div>
@@ -206,15 +203,15 @@ async function detectLoop() {
 
     const results = handLandmarker.detectForVideo(video, nowInMs);
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
     if (results.landmarks.length > 0) {
       statusText.innerText = "Mano detectada";
 
       const landmarks = results.landmarks[0];
       const indexTip = landmarks[8];
 
-      const x = indexTip.x * window.innerWidth;
+      // 🔥 CORRECCIÓN CLAVE:
+      // Invertimos X porque el video está espejado
+      const x = (1 - indexTip.x) * window.innerWidth;
       const y = indexTip.y * window.innerHeight;
 
       const now = Date.now();
