@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BodyBeat V0.8</title>
+<title>BodyBeat V1.0 PRO</title>
 
 <style>
 body {
   margin: 0;
   overflow: hidden;
-  background: black;
+  background: radial-gradient(circle at center, #111 0%, #000 80%);
   font-family: Arial, sans-serif;
 }
 
@@ -21,53 +21,61 @@ video {
   transform: scaleX(-1);
 }
 
-/* CONTENEDORES */
-.pad-top,
-.pad-bottom {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 20px;
-  z-index: 5;
-}
-
+/* CONTENEDOR SUPERIOR ESTILO MPC */
 .pad-top {
-  top: 40px;
+  position: absolute;
+  top: 30px;
+  width: 100%;
+  display: flex;
+  justify-content: space-evenly; /* 🔥 Separados hacia extremos */
+  align-items: center;
+  z-index: 5;
+  padding: 0 40px;
+  box-sizing: border-box;
 }
 
-.pad-bottom {
-  bottom: 40px;
-}
-
-/* 30% MÁS CHICOS (80px → 56px aprox) */
+/* RESPONSIVE SIZE */
 .pad {
-  width: 56px;
-  height: 56px;
-  border-radius: 12px;
-  background: rgba(255,255,255,0.2);
-  border: 2px solid white;
+  width: 6vw;
+  height: 6vw;
+  min-width: 50px;
+  min-height: 50px;
+  max-width: 90px;
+  max-height: 90px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.08);
+  border: 2px solid rgba(255,255,255,0.6);
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
   font-weight: bold;
-  font-size: 12px;
-  transition: 0.1s;
+  font-size: 0.9vw;
+  min-font-size: 11px;
+  transition: all 0.12s ease;
+  backdrop-filter: blur(6px);
 }
 
+/* GLOW EFFECT */
 .pad.active {
-  background: rgba(0,255,0,0.6);
+  background: rgba(0,255,120,0.25);
+  box-shadow: 
+    0 0 15px rgba(0,255,120,0.8),
+    0 0 30px rgba(0,255,120,0.6),
+    0 0 50px rgba(0,255,120,0.4);
+  transform: scale(1.08);
+  border-color: rgba(0,255,120,0.9);
 }
 
 #status {
   position:absolute;
-  top:10px;
+  top:5px;
   left:50%;
   transform:translateX(-50%);
   color:white;
-  font-size:14px;
+  font-size:13px;
   z-index:5;
+  opacity:0.8;
 }
 
 #unlock {
@@ -82,26 +90,22 @@ video {
   align-items:center;
   justify-content:center;
   z-index:10;
+  font-size:20px;
 }
 </style>
 </head>
 <body>
 
-<div id="unlock">Toca la pantalla para activar sonido</div>
+<div id="unlock">Toca para activar sonido</div>
 <div id="status">Inicializando...</div>
 
 <video id="video" autoplay playsinline></video>
 
-<!-- PADS SUPERIORES -->
 <div class="pad-top">
-  <div id="kick" class="pad">Kick</div>
-  <div id="snare" class="pad">Snare</div>
-</div>
-
-<!-- PADS INFERIORES -->
-<div class="pad-bottom">
-  <div id="hihat" class="pad">HiHat</div>
-  <div id="clap" class="pad">Clap</div>
+  <div id="kick" class="pad">KICK</div>
+  <div id="snare" class="pad">SNARE</div>
+  <div id="hihat" class="pad">HIHAT</div>
+  <div id="clap" class="pad">CLAP</div>
 </div>
 
 <script type="module">
@@ -138,18 +142,20 @@ function playDrum(freq) {
   osc.connect(gain);
   gain.connect(audioContext.destination);
 
+  osc.type = "square";
   osc.frequency.value = freq;
+
   gain.gain.setValueAtTime(1, audioContext.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.25);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.22);
 
   osc.start();
-  osc.stop(audioContext.currentTime + 0.25);
+  osc.stop(audioContext.currentTime + 0.22);
 }
 
 let handLandmarker;
 let running = false;
 let lastTrigger = 0;
-const triggerDelay = 250;
+const triggerDelay = 220;
 
 async function init() {
   statusText.innerText = "Cargando modelo...";
@@ -167,7 +173,7 @@ async function init() {
     numHands: 1
   });
 
-  statusText.innerText = "Modelo cargado. Activando cámara...";
+  statusText.innerText = "Modelo listo";
   startCamera();
 }
 
@@ -201,7 +207,6 @@ async function detectLoop() {
   const results = handLandmarker.detectForVideo(video, nowInMs);
 
   if (results.landmarks.length > 0) {
-    statusText.innerText = "Mano detectada";
 
     const landmarks = results.landmarks[0];
     const indexTip = landmarks[8];
@@ -222,18 +227,16 @@ async function detectLoop() {
 
         if (now - lastTrigger > triggerDelay) {
           const frequencies = {
-            kick: 120,
+            kick: 110,
             snare: 200,
-            hihat: 400,
-            clap: 300
+            hihat: 500,
+            clap: 320
           };
           playDrum(frequencies[key]);
           lastTrigger = now;
         }
       }
     }
-  } else {
-    statusText.innerText = "No se detecta mano";
   }
 
   requestAnimationFrame(detectLoop);
