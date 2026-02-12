@@ -3,18 +3,102 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BodyBeat V0.3 STABLE</title>
+<title>BodyBeat V0.4 Tasks Vision</title>
 
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4/hands.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+<script type="module">
+import {
+  HandLandmarker,
+  FilesetResolver
+} from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0";
+
+const video = document.getElementById("video");
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const statusText = document.getElementById("status");
+
+let handLandmarker;
+let running = false;
+
+async function init() {
+  statusText.innerText = "Cargando modelo...";
+
+  const vision = await FilesetResolver.forVisionTasks(
+    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm"
+  );
+
+  handLandmarker = await HandLandmarker.createFromOptions(vision, {
+    baseOptions: {
+      modelAssetPath:
+        "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
+    },
+    runningMode: "VIDEO",
+    numHands: 1
+  });
+
+  statusText.innerText = "Modelo cargado. Activando cámara...";
+  startCamera();
+}
+
+async function startCamera() {
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: "user" }
+  });
+
+  video.srcObject = stream;
+
+  video.onloadeddata = () => {
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    running = true;
+    detectLoop();
+    statusText.innerText = "Detectando mano...";
+  };
+}
+
+let lastVideoTime = -1;
+
+async function detectLoop() {
+  if (!running) return;
+
+  let nowInMs = Date.now();
+
+  if (video.currentTime !== lastVideoTime) {
+    lastVideoTime = video.currentTime;
+
+    const results = handLandmarker.detectForVideo(video, nowInMs);
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (results.landmarks.length > 0) {
+      statusText.innerText = "Mano detectada";
+
+      const landmarks = results.landmarks[0];
+
+      for (const point of landmarks) {
+        const x = point.x * canvas.width;
+        const y = point.y * canvas.height;
+
+        ctx.beginPath();
+        ctx.arc(x, y, 5, 0, 2 * Math.PI);
+        ctx.fillStyle = "cyan";
+        ctx.fill();
+      }
+    } else {
+      statusText.innerText = "No se detecta mano";
+    }
+  }
+
+  requestAnimationFrame(detectLoop);
+}
+
+init();
+</script>
 
 <style>
 body {
   margin: 0;
   overflow: hidden;
   background: black;
-  font-family: Arial, sans-serif;
 }
 
 video {
@@ -32,45 +116,6 @@ canvas {
   pointer-events: none;
 }
 
-.pad {
-  position: absolute;
-  width: 100px;
-  height: 100px;
-  border-radius: 20px;
-  background: rgba(255,255,255,0.2);
-  border: 2px solid white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: bold;
-  user-select: none;
-  transition: 0.1s;
-}
-
-.pad.active {
-  background: rgba(0,255,0,0.5);
-}
-
-#kick { bottom: 220px; left: 20%; }
-#snare { bottom: 220px; right: 20%; }
-#hihat { bottom: 80px; left: 20%; }
-#clap { bottom: 80px; right: 20%; }
-
-#unlock {
-  position:absolute;
-  top:0;
-  left:0;
-  width:100%;
-  height:100%;
-  background:black;
-  color:white;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  z-index:10;
-}
-
 #status {
   position:absolute;
   top:10px;
@@ -84,137 +129,9 @@ canvas {
 </head>
 <body>
 
-<div id="unlock">Toca la pantalla para activar el sonido</div>
 <div id="status">Inicializando...</div>
-
 <video id="video" autoplay playsinline></video>
-<canvas id="debugCanvas"></canvas>
-
-<div id="kick" class="pad">Kick</div>
-<div id="snare" class="pad">Snare</div>
-<div id="hihat" class="pad">HiHat</div>
-<div id="clap" class="pad">Clap</div>
-
-<script>
-const video = document.getElementById('video');
-const canvas = document.getElementById('debugCanvas');
-const ctx = canvas.getContext('2d');
-const unlock = document.getElementById('unlock');
-const statusText = document.getElementById('status');
-
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
-
-let audioContext;
-let audioUnlocked = false;
-
-unlock.addEventListener("click", () => {
-  audioContext = new (window.AudioContext || window.webkitAudioContext)();
-  audioUnlocked = true;
-  unlock.style.display = "none";
-});
-
-navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
-.then(stream => {
-  video.srcObject = stream;
-  statusText.innerText = "Cámara activa. Detectando mano...";
-});
-
-function playDrum(type) {
-  if(!audioUnlocked) return;
-
-  const osc = audioContext.createOscillator();
-  const gain = audioContext.createGain();
-
-  osc.connect(gain);
-  gain.connect(audioContext.destination);
-
-  osc.frequency.value = 200;
-  gain.gain.setValueAtTime(1, audioContext.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.3);
-
-  osc.start();
-  osc.stop(audioContext.currentTime + 0.3);
-}
-
-const pads = {
-  kick: document.getElementById('kick'),
-  snare: document.getElementById('snare'),
-  hihat: document.getElementById('hihat'),
-  clap: document.getElementById('clap')
-};
-
-let lastTrigger = 0;
-const triggerDelay = 300;
-
-function isInside(rect, x, y){
-  return (
-    x >= rect.left &&
-    x <= rect.right &&
-    y >= rect.top &&
-    y <= rect.bottom
-  );
-}
-
-const hands = new Hands({
-  locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4/${file}`
-});
-
-hands.setOptions({
-  maxNumHands: 1,
-  minDetectionConfidence: 0.7,
-  minTrackingConfidence: 0.7
-});
-
-hands.onResults(results => {
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-
-  if(results.multiHandLandmarks && results.multiHandLandmarks.length > 0){
-    statusText.innerText = "Mano detectada";
-
-    const landmarks = results.multiHandLandmarks[0];
-
-    for (const point of landmarks) {
-      const px = (1 - point.x) * window.innerWidth;
-      const py = point.y * window.innerHeight;
-      ctx.beginPath();
-      ctx.arc(px, py, 5, 0, 2 * Math.PI);
-      ctx.fillStyle = "cyan";
-      ctx.fill();
-    }
-
-    const indexTip = landmarks[8];
-    const x = (1 - indexTip.x) * window.innerWidth;
-    const y = indexTip.y * window.innerHeight;
-
-    const now = Date.now();
-
-    for(let key in pads){
-      const rect = pads[key].getBoundingClientRect();
-      pads[key].classList.remove("active");
-
-      if(isInside(rect, x, y)){
-        pads[key].classList.add("active");
-        if(now - lastTrigger > triggerDelay){
-          playDrum(key);
-          lastTrigger = now;
-        }
-      }
-    }
-  } else {
-    statusText.innerText = "No se detecta mano";
-  }
-});
-
-const camera = new Camera(video, {
-  onFrame: async () => {
-    await hands.send({image: video});
-  },
-  width: 720,
-  height: 1280
-});
-camera.start();
-</script>
+<canvas id="canvas"></canvas>
 
 </body>
 </html>
