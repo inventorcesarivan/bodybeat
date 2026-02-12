@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BodyBeat V2.1 - Optimized Drum Roll Mode</title>
+<title>BodyBeat V3 - LED Tracking Mode</title>
 
 <style>
 body {
@@ -56,17 +56,12 @@ canvas {
 <body>
 
 <div id="unlock">Toca para activar sonido</div>
-<div id="status">Inicializando...</div>
+<div id="status">LED Tracking Mode</div>
 
 <video id="video" autoplay playsinline></video>
 <canvas id="canvas"></canvas>
 
-<script type="module">
-import {
-  HandLandmarker,
-  FilesetResolver
-} from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0";
-
+<script>
 const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
@@ -97,40 +92,28 @@ function playTone(freq) {
   osc.connect(gain);
   gain.connect(audioContext.destination);
 
-  gain.gain.setValueAtTime(0.7, audioContext.currentTime);
+  gain.gain.setValueAtTime(0.8, audioContext.currentTime);
   gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.15);
 
   osc.start();
   osc.stop(audioContext.currentTime + 0.15);
 }
 
-let handLandmarker;
-let running = false;
 let lastTrigger = 0;
-const triggerDelay = 100; // ⚡ más rápido
+const triggerDelay = 80;
 
-// Buffer para estabilizar gesto
-let openHistory = [];
-const historySize = 4;
+async function startCamera() {
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: "user" }
+  });
 
-function isHandOpen(landmarks) {
-  const tips = [8, 12, 16, 20];
-  const bases = [6, 10, 14, 18];
+  video.srcObject = stream;
 
-  let extended = 0;
-  for (let i = 0; i < tips.length; i++) {
-    if (landmarks[tips[i]].y < landmarks[bases[i]].y) {
-      extended++;
-    }
-  }
-  return extended >= 3;
-}
-
-function isStableOpen(currentState) {
-  openHistory.push(currentState);
-  if (openHistory.length > historySize) openHistory.shift();
-  const openCount = openHistory.filter(v => v).length;
-  return openCount >= 3;
+  video.onloadeddata = () => {
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    detectLoop();
+  };
 }
 
 function drawGrid(activeCol = -1, activeRow = -1) {
@@ -157,7 +140,7 @@ function drawGrid(activeCol = -1, activeRow = -1) {
   }
 
   if (activeCol >= 0 && activeRow >= 0) {
-    ctx.fillStyle = "rgba(0,255,150,0.3)";
+    ctx.fillStyle = "rgba(0,255,150,0.35)";
     ctx.fillRect(
       activeCol * cellW,
       activeRow * cellH,
@@ -167,84 +150,53 @@ function drawGrid(activeCol = -1, activeRow = -1) {
   }
 }
 
-async function init() {
-  statusText.innerText = "Cargando modelo...";
+function detectLoop() {
 
-  const vision = await FilesetResolver.forVisionTasks(
-    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm"
-  );
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const data = frame.data;
 
-  handLandmarker = await HandLandmarker.createFromOptions(vision, {
-    baseOptions: {
-      modelAssetPath:
-        "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
-    },
-    runningMode: "VIDEO",
-    numHands: 1
-  });
+  let brightest = 0;
+  let brightX = -1;
+  let brightY = -1;
 
-  startCamera();
-}
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
 
-async function startCamera() {
-  const stream = await navigator.mediaDevices.getUserMedia({
-    video: { facingMode: "user" }
-  });
+    const brightness = r + g + b;
 
-  video.srcObject = stream;
-
-  video.onloadeddata = () => {
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    running = true;
-    detectLoop();
-    statusText.innerText = "Drum Roll Mode activo";
-  };
-}
-
-async function detectLoop() {
-  if (!running) return;
-
-  const nowInMs = Date.now();
-  const results = handLandmarker.detectForVideo(video, nowInMs);
+    if (brightness > brightest && brightness > 600) {
+      brightest = brightness;
+      const index = i / 4;
+      brightX = index % canvas.width;
+      brightY = Math.floor(index / canvas.width);
+    }
+  }
 
   drawGrid();
 
-  if (results.landmarks.length > 0) {
-    const landmarks = results.landmarks[0];
+  if (brightX !== -1) {
 
-    const openNow = isHandOpen(landmarks);
-    const stableOpen = isStableOpen(openNow);
+    const col = Math.floor(brightX / (canvas.width / COLS));
+    const row = Math.floor(brightY / (canvas.height / ROWS));
 
-    if (stableOpen) {
+    drawGrid(col, row);
 
-      // 🔥 Usamos centro de palma (landmark 9)
-      const palm = landmarks[9];
+    const now = Date.now();
 
-      const x = (1 - palm.x) * canvas.width;
-      const y = palm.y * canvas.height;
-
-      const col = Math.floor(x / (canvas.width / COLS));
-      const row = Math.floor(y / (canvas.height / ROWS));
-
-      drawGrid(col, row);
-
-      const now = Date.now();
-
-      if (now - lastTrigger > triggerDelay) {
-        const freq = 150 + row * 35 + col * 18;
-        playTone(freq);
-        lastTrigger = now;
-      }
-
+    if (now - lastTrigger > triggerDelay) {
+      const freq = 150 + row * 35 + col * 18;
+      playTone(freq);
+      lastTrigger = now;
     }
-
   }
 
   requestAnimationFrame(detectLoop);
 }
 
-init();
+startCamera();
 </script>
 
 </body>
