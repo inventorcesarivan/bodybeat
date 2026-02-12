@@ -1,0 +1,148 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BodyBeat V0.1</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+
+<style>
+body {
+  margin: 0;
+  overflow: hidden;
+  background: black;
+  font-family: Arial, sans-serif;
+}
+
+video {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pad {
+  position: absolute;
+  width: 100px;
+  height: 100px;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.2);
+  border: 2px solid white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: bold;
+  user-select: none;
+}
+
+#kick { bottom: 220px; left: 20%; }
+#snare { bottom: 220px; right: 20%; }
+#hihat { bottom: 80px; left: 20%; }
+#clap { bottom: 80px; right: 20%; }
+</style>
+</head>
+<body>
+
+<video id="video" autoplay playsinline></video>
+
+<div id="kick" class="pad">Kick</div>
+<div id="snare" class="pad">Snare</div>
+<div id="hihat" class="pad">HiHat</div>
+<div id="clap" class="pad">Clap</div>
+
+<script>
+const video = document.getElementById('video');
+
+navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
+.then(stream => {
+  video.srcObject = stream;
+});
+
+const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+function playDrum(type) {
+  const osc = audioContext.createOscillator();
+  const gain = audioContext.createGain();
+
+  osc.connect(gain);
+  gain.connect(audioContext.destination);
+
+  if(type === "kick"){
+    osc.frequency.setValueAtTime(150, audioContext.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.5);
+  }
+  if(type === "snare"){
+    osc.frequency.setValueAtTime(300, audioContext.currentTime);
+  }
+  if(type === "hihat"){
+    osc.frequency.setValueAtTime(800, audioContext.currentTime);
+  }
+  if(type === "clap"){
+    osc.frequency.setValueAtTime(600, audioContext.currentTime);
+  }
+
+  gain.gain.setValueAtTime(1, audioContext.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.3);
+
+  osc.start();
+  osc.stop(audioContext.currentTime + 0.3);
+}
+
+const pads = {
+  kick: document.getElementById('kick'),
+  snare: document.getElementById('snare'),
+  hihat: document.getElementById('hihat'),
+  clap: document.getElementById('clap')
+};
+
+function isInside(rect, x, y){
+  return (
+    x >= rect.left &&
+    x <= rect.right &&
+    y >= rect.top &&
+    y <= rect.bottom
+  );
+}
+
+const hands = new Hands({
+  locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+});
+
+hands.setOptions({
+  maxNumHands: 1,
+  minDetectionConfidence: 0.7,
+  minTrackingConfidence: 0.7
+});
+
+hands.onResults(results => {
+  if(results.multiHandLandmarks.length > 0){
+    const indexTip = results.multiHandLandmarks[0][8];
+
+    const x = indexTip.x * window.innerWidth;
+    const y = indexTip.y * window.innerHeight;
+
+    for(let key in pads){
+      const rect = pads[key].getBoundingClientRect();
+      if(isInside(rect, x, y)){
+        playDrum(key);
+      }
+    }
+  }
+});
+
+const camera = new Camera(video, {
+  onFrame: async () => {
+    await hands.send({image: video});
+  },
+  width: 720,
+  height: 1280
+});
+camera.start();
+</script>
+
+</body>
+</html>
