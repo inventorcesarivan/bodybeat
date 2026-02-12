@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BodyBeat V3.2 - Smart Calibration</title>
+<title>BodyBeat V3.3 - Manual Calibration</title>
 
 <style>
-body { margin:0; overflow:hidden; background:black; }
+body { margin:0; overflow:hidden; background:black; font-family:Arial, sans-serif; }
 
 video {
   position:absolute;
@@ -29,12 +29,32 @@ canvas {
   background:black;
   color:white;
   display:flex;
+  flex-direction:column;
   align-items:center;
   justify-content:center;
   text-align:center;
-  font-size:22px;
+  font-size:20px;
   z-index:20;
-  padding:20px;
+  padding:30px;
+}
+
+button {
+  margin-top:20px;
+  padding:12px 20px;
+  font-size:16px;
+  border:none;
+  border-radius:8px;
+  cursor:pointer;
+}
+
+#invertBtn {
+  background:#00ff99;
+  color:black;
+}
+
+#startBtn {
+  background:white;
+  color:black;
 }
 
 #status {
@@ -50,7 +70,16 @@ canvas {
 </head>
 <body>
 
-<div id="overlay">Toca para activar sonido</div>
+<div id="overlay">
+  <div>
+    Si mueves tu mano hacia la derecha<br>
+    y la luz se mueve hacia la izquierda,<br>
+    presiona el botón para invertir la cámara.
+  </div>
+  <button id="invertBtn">Invertir cámara</button>
+  <button id="startBtn">Comenzar</button>
+</div>
+
 <div id="status">LED Tracking Mode</div>
 
 <video id="video" autoplay playsinline></video>
@@ -61,6 +90,8 @@ const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 const overlay = document.getElementById("overlay");
+const invertBtn = document.getElementById("invertBtn");
+const startBtn = document.getElementById("startBtn");
 const statusText = document.getElementById("status");
 
 const COLS = 8;
@@ -69,22 +100,21 @@ const ROWS = 6;
 let audioContext;
 let audioUnlocked = false;
 let mirrorX = false;
-let calibrated = false;
 
-overlay.addEventListener("click", () => {
-  audioContext = new (window.AudioContext || window.webkitAudioContext)();
-  audioUnlocked = true;
-  startCalibration();
+invertBtn.addEventListener("click", () => {
+  mirrorX = !mirrorX;
+  invertBtn.innerText = mirrorX ? "Cámara invertida ✔" : "Invertir cámara";
 });
 
-function startCalibration() {
-  calibrated = false;
-  movementSamples = [];
-  overlay.innerHTML = "Mueve la luz hacia la DERECHA<br><br>Presiona C para recalibrar luego";
-}
+startBtn.addEventListener("click", () => {
+  audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  audioUnlocked = true;
+  overlay.style.display = "none";
+  statusText.innerText = "Sistema listo ✔ (Recarga para recalibrar)";
+});
 
 function playTone(freq) {
-  if (!audioUnlocked || !calibrated) return;
+  if (!audioUnlocked) return;
 
   const osc = audioContext.createOscillator();
   const gain = audioContext.createGain();
@@ -148,8 +178,6 @@ function drawGrid(activeCol=-1, activeRow=-1) {
   }
 }
 
-let movementSamples = [];
-
 function detectLoop(){
 
   ctx.drawImage(video,0,0,canvas.width,canvas.height);
@@ -174,29 +202,12 @@ function detectLoop(){
     }
   }
 
-  if(!calibrated){
-    if(brightX!==-1){
-      movementSamples.push(brightX);
-      if(movementSamples.length>40) movementSamples.shift();
-
-      if(movementSamples.length>=30){
-        const delta = movementSamples[movementSamples.length-1] - movementSamples[0];
-        if(Math.abs(delta) > 30){
-          mirrorX = delta < 0;
-          calibrated = true;
-          overlay.style.display="none";
-          statusText.innerText="Calibrado ✔ (Presiona C para recalibrar)";
-        }
-      }
-    }
-    requestAnimationFrame(detectLoop);
-    return;
-  }
-
   drawGrid();
 
-  if(brightX!==-1){
+  if(brightX!==-1 && audioUnlocked){
+
     const correctedX = mirrorX ? canvas.width-brightX : brightX;
+
     const col=Math.floor(correctedX/(canvas.width/COLS));
     const row=Math.floor(brightY/(canvas.height/ROWS));
 
@@ -212,13 +223,6 @@ function detectLoop(){
 
   requestAnimationFrame(detectLoop);
 }
-
-document.addEventListener("keydown",(e)=>{
-  if(e.key.toLowerCase()==="c"){
-    overlay.style.display="flex";
-    startCalibration();
-  }
-});
 
 startCamera();
 </script>
