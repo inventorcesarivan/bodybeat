@@ -3,26 +3,22 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BodyBeat V3.6 - Correct Canvas Mirror</title>
+<title>BodyBeat V3.7 - Unified Canvas Mode</title>
 
 <style>
 body { margin:0; overflow:hidden; background:black; font-family:Arial, sans-serif; }
 
 video {
-  position:absolute;
-  width:100%;
-  height:100%;
-  object-fit:cover;
+  display:none; /* 🔥 Video oculto — solo usamos el canvas */
 }
 
 canvas {
   position:absolute;
   width:100%;
   height:100%;
-  pointer-events:none;
 }
 
-/* Overlay for audio unlock */
+/* Overlay para activar audio */
 #overlay {
   position:absolute;
   top:0; left:0;
@@ -36,23 +32,24 @@ canvas {
   z-index:20;
 }
 
-/* Mini HUD */
+/* HUD centrado arriba */
 #hud {
   position:absolute;
   top:15px;
-  right:15px;
+  left:50%;
+  transform:translateX(-50%);
   z-index:30;
   display:flex;
   flex-direction:column;
-  align-items:flex-end;
-  gap:6px;
+  align-items:center;
+  gap:4px;
 }
 
 #mirrorBtn {
   background:rgba(0,255,150,0.15);
   color:#00ff99;
   border:1px solid rgba(0,255,150,0.6);
-  padding:6px 12px;
+  padding:6px 14px;
   font-size:12px;
   border-radius:20px;
   cursor:pointer;
@@ -67,11 +64,11 @@ canvas {
 
 #status {
   position:absolute;
-  top:10px;
+  top:60px;
   left:50%;
   transform:translateX(-50%);
   color:white;
-  font-size:14px;
+  font-size:13px;
   z-index:5;
 }
 </style>
@@ -85,7 +82,7 @@ canvas {
   <div id="mirrorState">Vista: Normal</div>
 </div>
 
-<div id="status">LED Tracking Canvas Mirror Mode</div>
+<div id="status">LED Tracking Unified Canvas Mode</div>
 
 <video id="video" autoplay playsinline></video>
 <canvas id="canvas"></canvas>
@@ -214,6 +211,16 @@ function detectLoop(){
   }
 
   ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  ctx.save();
+  if(mirrored){
+    ctx.scale(-1,1);
+    ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
+  } else {
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  }
+  ctx.restore();
+
   drawGrid();
 
   if(brightX!==-1 && audioUnlocked){
