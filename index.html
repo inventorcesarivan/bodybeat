@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BodyBeat V0.1</title>
+<title>BodyBeat V0.2</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
@@ -22,6 +21,14 @@ video {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transform: scaleX(-1);
+}
+
+canvas {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
 }
 
 .pad {
@@ -37,17 +44,39 @@ video {
   color: white;
   font-weight: bold;
   user-select: none;
+  transition: 0.1s;
+}
+
+.pad.active {
+  background: rgba(0,255,0,0.5);
 }
 
 #kick { bottom: 220px; left: 20%; }
 #snare { bottom: 220px; right: 20%; }
 #hihat { bottom: 80px; left: 20%; }
 #clap { bottom: 80px; right: 20%; }
+
+#unlock {
+  position:absolute;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  background:black;
+  color:white;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:10;
+}
 </style>
 </head>
 <body>
 
+<div id="unlock">Toca la pantalla para activar el sonido</div>
+
 <video id="video" autoplay playsinline></video>
+<canvas id="debugCanvas"></canvas>
 
 <div id="kick" class="pad">Kick</div>
 <div id="snare" class="pad">Snare</div>
@@ -56,15 +85,30 @@ video {
 
 <script>
 const video = document.getElementById('video');
+const canvas = document.getElementById('debugCanvas');
+const ctx = canvas.getContext('2d');
+const unlock = document.getElementById('unlock');
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+let audioContext;
+let audioUnlocked = false;
+
+unlock.addEventListener("click", () => {
+  audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  audioUnlocked = true;
+  unlock.style.display = "none";
+});
 
 navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
 .then(stream => {
   video.srcObject = stream;
 });
 
-const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-
 function playDrum(type) {
+  if(!audioUnlocked) return;
+
   const osc = audioContext.createOscillator();
   const gain = audioContext.createGain();
 
@@ -99,6 +143,9 @@ const pads = {
   clap: document.getElementById('clap')
 };
 
+let lastTrigger = 0;
+const triggerDelay = 300;
+
 function isInside(rect, x, y){
   return (
     x >= rect.left &&
@@ -119,16 +166,31 @@ hands.setOptions({
 });
 
 hands.onResults(results => {
-  if(results.multiHandLandmarks.length > 0){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  if(results.multiHandLandmarks && results.multiHandLandmarks.length > 0){
     const indexTip = results.multiHandLandmarks[0][8];
 
-    const x = indexTip.x * window.innerWidth;
+    const x = (1 - indexTip.x) * window.innerWidth;
     const y = indexTip.y * window.innerHeight;
+
+    ctx.beginPath();
+    ctx.arc(x, y, 10, 0, 2 * Math.PI);
+    ctx.fillStyle = "blue";
+    ctx.fill();
+
+    const now = Date.now();
 
     for(let key in pads){
       const rect = pads[key].getBoundingClientRect();
+      pads[key].classList.remove("active");
+
       if(isInside(rect, x, y)){
-        playDrum(key);
+        pads[key].classList.add("active");
+        if(now - lastTrigger > triggerDelay){
+          playDrum(key);
+          lastTrigger = now;
+        }
       }
     }
   }
