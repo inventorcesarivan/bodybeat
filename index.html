@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BodyBeat V4.2 - Per Cell Audio</title>
+<title>BodyBeat V4.3 - Hybrid Sound System</title>
 
 <style>
 body { margin:0; overflow:hidden; background:black; font-family:Arial, sans-serif; }
@@ -40,14 +40,11 @@ canvas { position:absolute; width:100%; height:100%; }
 }
 
 #cellPanel {
-  position:absolute;
-  top:50%; left:50%;
+  position:absolute; top:50%; left:50%;
   transform:translate(-50%,-50%);
   background:rgba(0,0,0,0.95);
   border:1px solid #00ff99;
-  padding:20px;
-  display:none;
-  z-index:100;
+  padding:20px; display:none; z-index:100;
 }
 
 .cellGrid {
@@ -62,7 +59,6 @@ canvas { position:absolute; width:100%; height:100%; }
   border:1px solid #00ff99;
   cursor:pointer;
 }
-
 </style>
 </head>
 <body>
@@ -72,8 +68,14 @@ canvas { position:absolute; width:100%; height:100%; }
 <button id="menuBtn">☰ MENU</button>
 
 <div id="sideMenu">
-  <h3>🎵 Sonido</h3>
-  <button id="openCellAssign">Cargar tus propios audios</button>
+  <h3>🎵 Instrumento Global</h3>
+  <select id="instrumentSelect">
+    <option value="piano">Piano</option>
+    <option value="drum">Drum Kit</option>
+    <option value="synth">Synth</option>
+  </select>
+
+  <button id="openCellAssign">Asignar audios por cuadro</button>
 
   <h3>🎥 Cámara</h3>
   <button id="mirrorToggle">Vista: Normal</button>
@@ -97,6 +99,7 @@ const ctx=canvas.getContext("2d");
 const overlay=document.getElementById("overlay");
 const menuBtn=document.getElementById("menuBtn");
 const sideMenu=document.getElementById("sideMenu");
+const instrumentSelect=document.getElementById("instrumentSelect");
 const openCellAssign=document.getElementById("openCellAssign");
 const cellPanel=document.getElementById("cellPanel");
 const cellGrid=document.getElementById("cellGrid");
@@ -105,7 +108,8 @@ const mirrorToggle=document.getElementById("mirrorToggle");
 
 let audioContext, audioUnlocked=false;
 let mirrored=false;
-let cellBuffers = Array.from({length:ROWS},()=>Array(COLS).fill(null));
+let currentInstrument="piano";
+let cellBuffers=Array.from({length:ROWS},()=>Array(COLS).fill(null));
 let selectedCell=null;
 
 overlay.onclick=()=>{
@@ -115,26 +119,20 @@ overlay.onclick=()=>{
 };
 
 menuBtn.onclick=()=>sideMenu.classList.toggle("open");
+instrumentSelect.onchange=()=>currentInstrument=instrumentSelect.value;
 
 mirrorToggle.onclick=()=>{
   mirrored=!mirrored;
   mirrorToggle.innerText=mirrored?"Vista: Espejada ✔":"Vista: Normal";
 };
 
-openCellAssign.onclick=()=>{
-  cellPanel.style.display="block";
-};
-
-function closeCellPanel(){
-  cellPanel.style.display="none";
-}
+openCellAssign.onclick=()=>cellPanel.style.display="block";
+function closeCellPanel(){ cellPanel.style.display="none"; }
 
 for(let r=0;r<ROWS;r++){
   for(let c=0;c<COLS;c++){
     const btn=document.createElement("div");
     btn.className="cellBtn";
-    btn.dataset.row=r;
-    btn.dataset.col=c;
     btn.onclick=()=>{
       selectedCell={row:r,col:c};
       hiddenFile.click();
@@ -144,22 +142,49 @@ for(let r=0;r<ROWS;r++){
 }
 
 hiddenFile.onchange=async(e)=>{
-  if(!selectedCell) return;
   const file=e.target.files[0];
-  if(!file) return;
-  const arrayBuffer=await file.arrayBuffer();
-  const buffer=await audioContext.decodeAudioData(arrayBuffer);
+  if(!file||!selectedCell) return;
+  const buffer=await audioContext.decodeAudioData(await file.arrayBuffer());
   cellBuffers[selectedCell.row][selectedCell.col]=buffer;
 };
 
-function playCellSample(row,col){
-  if(!audioUnlocked) return;
+function playBuiltIn(row,col){
+  const base=110;
+  const freq=base*Math.pow(2,row/12);
+
+  if(currentInstrument==="piano"){
+    playOsc(freq,col%2?"triangle":"sine",0.4);
+  }
+  else if(currentInstrument==="drum"){
+    playOsc(col<3?120:250,col<3?"sine":"square",0.2);
+  }
+  else if(currentInstrument==="synth"){
+    playOsc(freq,col%2?"sawtooth":"square",0.5);
+  }
+}
+
+function playOsc(freq,type,duration){
+  const osc=audioContext.createOscillator();
+  const gain=audioContext.createGain();
+  osc.type=type;
+  osc.frequency.value=freq;
+  osc.connect(gain);
+  gain.connect(audioContext.destination);
+  gain.gain.setValueAtTime(0.8,audioContext.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001,audioContext.currentTime+duration);
+  osc.start();
+  osc.stop(audioContext.currentTime+duration);
+}
+
+function playCell(row,col){
   const buffer=cellBuffers[row][col];
   if(buffer){
     const src=audioContext.createBufferSource();
     src.buffer=buffer;
     src.connect(audioContext.destination);
     src.start();
+  } else {
+    playBuiltIn(row,col);
   }
 }
 
@@ -197,22 +222,22 @@ function detectLoop(){
   if(mirrored){
     ctx.scale(-1,1);
     ctx.drawImage(video,-canvas.width,0,canvas.width,canvas.height);
-  }else{
+  } else {
     ctx.drawImage(video,0,0,canvas.width,canvas.height);
   }
   ctx.restore();
 
   const frame=ctx.getImageData(0,0,canvas.width,canvas.height);
   const data=frame.data;
-  let brightest=0,brightX=-1,brightY=-1;
 
+  let brightest=0,brightX=-1,brightY=-1;
   for(let i=0;i<data.length;i+=4){
-    const brightness=data[i]+data[i+1]+data[i+2];
-    if(brightness>brightest&&brightness>600){
-      brightest=brightness;
-      const index=i/4;
-      brightX=index%canvas.width;
-      brightY=Math.floor(index/canvas.width);
+    const b=data[i]+data[i+1]+data[i+2];
+    if(b>brightest&&b>600){
+      brightest=b;
+      const idx=i/4;
+      brightX=idx%canvas.width;
+      brightY=Math.floor(idx/canvas.width);
     }
   }
 
@@ -221,20 +246,20 @@ function detectLoop(){
   if(mirrored){
     ctx.scale(-1,1);
     ctx.drawImage(video,-canvas.width,0,canvas.width,canvas.height);
-  }else{
+  } else {
     ctx.drawImage(video,0,0,canvas.width,canvas.height);
   }
   ctx.restore();
 
   drawGrid();
 
-  if(brightX!==-1 && audioUnlocked){
+  if(brightX!==-1&&audioUnlocked){
     const col=Math.floor(brightX/(canvas.width/COLS));
     const row=Math.floor(brightY/(canvas.height/ROWS));
     drawGrid(col,row);
     const now=Date.now();
     if(now-lastTrigger>triggerDelay){
-      playCellSample(row,col);
+      playCell(row,col);
       lastTrigger=now;
     }
   }
