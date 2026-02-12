@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BodyBeat V5.1 - Trainer Arms Stable</title>
+<title>BodyBeat V5.2 - Trainer Arms Smooth</title>
 
 <style>
 body { margin:0; overflow:hidden; background:black; font-family:Arial, sans-serif; }
@@ -33,6 +33,8 @@ import { PoseLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@m
 
 let poseLandmarker;
 let video, canvas, ctx;
+let lastVideoTime = -1;
+let currentLandmarks = null;
 
 async function initPose(){
 
@@ -57,7 +59,7 @@ async function initPose(){
   video.onloadeddata = () => {
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-    detectLoop();
+    requestAnimationFrame(renderLoop);
   };
 }
 
@@ -90,17 +92,22 @@ function drawTrainerSilhouette(){
   ctx.stroke();
 }
 
-async function detectLoop(){
+function renderLoop(){
 
   ctx.drawImage(video,0,0,canvas.width,canvas.height);
 
-  const results = await poseLandmarker.detectForVideo(video, performance.now());
+  if (video.currentTime !== lastVideoTime) {
+    lastVideoTime = video.currentTime;
+    const results = poseLandmarker.detectForVideo(video, performance.now());
+    if (results.landmarks.length > 0) {
+      currentLandmarks = results.landmarks[0];
+    }
+  }
 
   drawTrainerSilhouette();
 
-  if(results.landmarks.length > 0){
-
-    const lm = results.landmarks[0];
+  if(currentLandmarks){
+    const lm = currentLandmarks;
 
     const leftShoulder = lm[11];
     const leftElbow = lm[13];
@@ -117,7 +124,7 @@ async function detectLoop(){
     drawLine(rightElbow,rightWrist,"#00ff00");
   }
 
-  requestAnimationFrame(detectLoop);
+  requestAnimationFrame(renderLoop);
 }
 
 window.addEventListener("DOMContentLoaded", () => {
@@ -138,7 +145,7 @@ window.addEventListener("DOMContentLoaded", () => {
 <body>
 
 <div id="overlay">Toca para iniciar entrenador</div>
-<div id="label">Modo Entrenador - Brazos (V5.1)</div>
+<div id="label">Modo Entrenador - Brazos (V5.2)</div>
 
 <video id="video" autoplay playsinline></video>
 <canvas id="canvas"></canvas>
