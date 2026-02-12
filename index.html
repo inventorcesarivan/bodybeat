@@ -3,9 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BodyBeat V0.2</title>
+<title>BodyBeat V0.3 STABLE</title>
 
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4/hands.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 
 <style>
@@ -69,11 +70,22 @@ canvas {
   justify-content:center;
   z-index:10;
 }
+
+#status {
+  position:absolute;
+  top:10px;
+  left:50%;
+  transform:translateX(-50%);
+  color:white;
+  font-size:14px;
+  z-index:5;
+}
 </style>
 </head>
 <body>
 
 <div id="unlock">Toca la pantalla para activar el sonido</div>
+<div id="status">Inicializando...</div>
 
 <video id="video" autoplay playsinline></video>
 <canvas id="debugCanvas"></canvas>
@@ -88,6 +100,7 @@ const video = document.getElementById('video');
 const canvas = document.getElementById('debugCanvas');
 const ctx = canvas.getContext('2d');
 const unlock = document.getElementById('unlock');
+const statusText = document.getElementById('status');
 
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
@@ -104,6 +117,7 @@ unlock.addEventListener("click", () => {
 navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
 .then(stream => {
   video.srcObject = stream;
+  statusText.innerText = "Cámara activa. Detectando mano...";
 });
 
 function playDrum(type) {
@@ -115,20 +129,7 @@ function playDrum(type) {
   osc.connect(gain);
   gain.connect(audioContext.destination);
 
-  if(type === "kick"){
-    osc.frequency.setValueAtTime(150, audioContext.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.5);
-  }
-  if(type === "snare"){
-    osc.frequency.setValueAtTime(300, audioContext.currentTime);
-  }
-  if(type === "hihat"){
-    osc.frequency.setValueAtTime(800, audioContext.currentTime);
-  }
-  if(type === "clap"){
-    osc.frequency.setValueAtTime(600, audioContext.currentTime);
-  }
-
+  osc.frequency.value = 200;
   gain.gain.setValueAtTime(1, audioContext.currentTime);
   gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.3);
 
@@ -156,7 +157,7 @@ function isInside(rect, x, y){
 }
 
 const hands = new Hands({
-  locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+  locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4/${file}`
 });
 
 hands.setOptions({
@@ -169,15 +170,22 @@ hands.onResults(results => {
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
   if(results.multiHandLandmarks && results.multiHandLandmarks.length > 0){
-    const indexTip = results.multiHandLandmarks[0][8];
+    statusText.innerText = "Mano detectada";
 
+    const landmarks = results.multiHandLandmarks[0];
+
+    for (const point of landmarks) {
+      const px = (1 - point.x) * window.innerWidth;
+      const py = point.y * window.innerHeight;
+      ctx.beginPath();
+      ctx.arc(px, py, 5, 0, 2 * Math.PI);
+      ctx.fillStyle = "cyan";
+      ctx.fill();
+    }
+
+    const indexTip = landmarks[8];
     const x = (1 - indexTip.x) * window.innerWidth;
     const y = indexTip.y * window.innerHeight;
-
-    ctx.beginPath();
-    ctx.arc(x, y, 10, 0, 2 * Math.PI);
-    ctx.fillStyle = "blue";
-    ctx.fill();
 
     const now = Date.now();
 
@@ -193,6 +201,8 @@ hands.onResults(results => {
         }
       }
     }
+  } else {
+    statusText.innerText = "No se detecta mano";
   }
 });
 
