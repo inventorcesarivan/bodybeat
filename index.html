@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BodyBeat V2 - Grid Gesture Mode</title>
+<title>BodyBeat V2.1 - Optimized Drum Roll Mode</title>
 
 <style>
 body {
@@ -97,18 +97,41 @@ function playTone(freq) {
   osc.connect(gain);
   gain.connect(audioContext.destination);
 
-  gain.gain.setValueAtTime(0.8, audioContext.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.2);
+  gain.gain.setValueAtTime(0.7, audioContext.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.15);
 
   osc.start();
-  osc.stop(audioContext.currentTime + 0.2);
+  osc.stop(audioContext.currentTime + 0.15);
 }
 
 let handLandmarker;
 let running = false;
-let lastCell = null;
 let lastTrigger = 0;
-const triggerDelay = 200;
+const triggerDelay = 100; // ⚡ más rápido
+
+// Buffer para estabilizar gesto
+let openHistory = [];
+const historySize = 4;
+
+function isHandOpen(landmarks) {
+  const tips = [8, 12, 16, 20];
+  const bases = [6, 10, 14, 18];
+
+  let extended = 0;
+  for (let i = 0; i < tips.length; i++) {
+    if (landmarks[tips[i]].y < landmarks[bases[i]].y) {
+      extended++;
+    }
+  }
+  return extended >= 3;
+}
+
+function isStableOpen(currentState) {
+  openHistory.push(currentState);
+  if (openHistory.length > historySize) openHistory.shift();
+  const openCount = openHistory.filter(v => v).length;
+  return openCount >= 3;
+}
 
 function drawGrid(activeCol = -1, activeRow = -1) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -144,21 +167,6 @@ function drawGrid(activeCol = -1, activeRow = -1) {
   }
 }
 
-function isHandOpen(landmarks) {
-  const tips = [8, 12, 16, 20];
-  const bases = [6, 10, 14, 18];
-
-  let extended = 0;
-
-  for (let i = 0; i < tips.length; i++) {
-    if (landmarks[tips[i]].y < landmarks[bases[i]].y) {
-      extended++;
-    }
-  }
-
-  return extended >= 3;
-}
-
 async function init() {
   statusText.innerText = "Cargando modelo...";
 
@@ -190,7 +198,7 @@ async function startCamera() {
     canvas.height = video.videoHeight;
     running = true;
     detectLoop();
-    statusText.innerText = "Grid activa - Mano abierta para sonar";
+    statusText.innerText = "Drum Roll Mode activo";
   };
 }
 
@@ -205,12 +213,16 @@ async function detectLoop() {
   if (results.landmarks.length > 0) {
     const landmarks = results.landmarks[0];
 
-    if (isHandOpen(landmarks)) {
+    const openNow = isHandOpen(landmarks);
+    const stableOpen = isStableOpen(openNow);
 
-      const wrist = landmarks[0];
+    if (stableOpen) {
 
-      const x = (1 - wrist.x) * canvas.width;
-      const y = wrist.y * canvas.height;
+      // 🔥 Usamos centro de palma (landmark 9)
+      const palm = landmarks[9];
+
+      const x = (1 - palm.x) * canvas.width;
+      const y = palm.y * canvas.height;
 
       const col = Math.floor(x / (canvas.width / COLS));
       const row = Math.floor(y / (canvas.height / ROWS));
@@ -219,19 +231,14 @@ async function detectLoop() {
 
       const now = Date.now();
 
-      if (
-        (lastCell !== col + "-" + row) &&
-        now - lastTrigger > triggerDelay
-      ) {
-        const freq = 150 + row * 40 + col * 20;
+      if (now - lastTrigger > triggerDelay) {
+        const freq = 150 + row * 35 + col * 18;
         playTone(freq);
-        lastCell = col + "-" + row;
         lastTrigger = now;
       }
 
-    } else {
-      lastCell = null;
     }
+
   }
 
   requestAnimationFrame(detectLoop);
