@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BodyBeat V3.4 - LED HUD Mode</title>
+<title>BodyBeat V3.5 - Proper Mirror Mode</title>
 
 <style>
 body { margin:0; overflow:hidden; background:black; font-family:Arial, sans-serif; }
@@ -13,6 +13,7 @@ video {
   width:100%;
   height:100%;
   object-fit:cover;
+  transform: scaleX(1); /* Default: no mirror */
 }
 
 canvas {
@@ -81,11 +82,11 @@ canvas {
 <div id="overlay">Toca para activar sonido</div>
 
 <div id="hud">
-  <button id="mirrorBtn">Invertir eje</button>
-  <div id="mirrorState">Modo: Normal</div>
+  <button id="mirrorBtn">Espejar video</button>
+  <div id="mirrorState">Vista: Normal</div>
 </div>
 
-<div id="status">LED Tracking HUD Mode</div>
+<div id="status">LED Tracking Proper Mirror Mode</div>
 
 <video id="video" autoplay playsinline></video>
 <canvas id="canvas"></canvas>
@@ -103,7 +104,7 @@ const ROWS = 6;
 
 let audioContext;
 let audioUnlocked = false;
-let mirrorX = false;
+let mirrored = false;
 
 overlay.addEventListener("click", () => {
   audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -112,8 +113,9 @@ overlay.addEventListener("click", () => {
 });
 
 mirrorBtn.addEventListener("click", () => {
-  mirrorX = !mirrorX;
-  mirrorState.innerText = mirrorX ? "Modo: Invertido ✔" : "Modo: Normal";
+  mirrored = !mirrored;
+  video.style.transform = mirrored ? "scaleX(-1)" : "scaleX(1)";
+  mirrorState.innerText = mirrored ? "Vista: Espejada ✔" : "Vista: Normal";
 });
 
 function playTone(freq) {
@@ -209,9 +211,7 @@ function detectLoop(){
 
   if(brightX!==-1 && audioUnlocked){
 
-    const correctedX = mirrorX ? canvas.width-brightX : brightX;
-
-    const col=Math.floor(correctedX/(canvas.width/COLS));
+    const col=Math.floor(brightX/(canvas.width/COLS));
     const row=Math.floor(brightY/(canvas.height/ROWS));
 
     drawGrid(col,row);
