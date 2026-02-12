@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BodyBeat V0.7 FIX</title>
+<title>BodyBeat V0.8</title>
 
 <style>
 body {
@@ -48,15 +48,12 @@ video {
 
 #status {
   position:absolute;
-  top:50%;
+  top:10px;
   left:50%;
-  transform:translate(-50%,-50%);
+  transform:translateX(-50%);
   color:white;
   font-size:14px;
   z-index:5;
-  background:rgba(0,0,0,0.6);
-  padding:8px 14px;
-  border-radius:8px;
 }
 
 #unlock {
@@ -135,7 +132,7 @@ function playDrum(type) {
 let handLandmarker;
 let running = false;
 let lastTrigger = 0;
-const triggerDelay = 200;
+const triggerDelay = 250;
 
 async function init() {
   statusText.innerText = "Cargando modelo...";
@@ -198,7 +195,6 @@ async function detectLoop() {
       const landmarks = results.landmarks[0];
       const indexTip = landmarks[8];
 
-      // compensamos espejo visual
       const x = (1 - indexTip.x) * window.innerWidth;
       const y = indexTip.y * window.innerHeight;
 
