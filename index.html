@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BodyBeat V0.7</title>
+<title>BodyBeat V0.8</title>
 
 <style>
 body {
@@ -21,21 +21,30 @@ video {
   transform: scaleX(-1);
 }
 
-.pad-container {
+/* CONTENEDORES */
+.pad-top,
+.pad-bottom {
   position: absolute;
-  right: 20px;
-  top: 50%;
-  transform: translateY(-50%);
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
-  flex-direction: column;
-  gap: 15px;
+  gap: 20px;
   z-index: 5;
 }
 
+.pad-top {
+  top: 40px;
+}
+
+.pad-bottom {
+  bottom: 40px;
+}
+
+/* 30% MÁS CHICOS (80px → 56px aprox) */
 .pad {
-  width: 80px;
-  height: 80px;
-  border-radius: 15px;
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
   background: rgba(255,255,255,0.2);
   border: 2px solid white;
   display: flex;
@@ -43,6 +52,7 @@ video {
   justify-content: center;
   color: white;
   font-weight: bold;
+  font-size: 12px;
   transition: 0.1s;
 }
 
@@ -82,9 +92,14 @@ video {
 
 <video id="video" autoplay playsinline></video>
 
-<div class="pad-container">
+<!-- PADS SUPERIORES -->
+<div class="pad-top">
   <div id="kick" class="pad">Kick</div>
   <div id="snare" class="pad">Snare</div>
+</div>
+
+<!-- PADS INFERIORES -->
+<div class="pad-bottom">
   <div id="hihat" class="pad">HiHat</div>
   <div id="clap" class="pad">Clap</div>
 </div>
@@ -125,16 +140,16 @@ function playDrum(freq) {
 
   osc.frequency.value = freq;
   gain.gain.setValueAtTime(1, audioContext.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.3);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.25);
 
   osc.start();
-  osc.stop(audioContext.currentTime + 0.3);
+  osc.stop(audioContext.currentTime + 0.25);
 }
 
 let handLandmarker;
 let running = false;
 let lastTrigger = 0;
-const triggerDelay = 300;
+const triggerDelay = 250;
 
 async function init() {
   statusText.innerText = "Cargando modelo...";
@@ -191,8 +206,6 @@ async function detectLoop() {
     const landmarks = results.landmarks[0];
     const indexTip = landmarks[8];
 
-    // 🔥 CORRECCIÓN DEFINITIVA:
-    // Convertimos coordenadas normalizadas al tamaño REAL del video en pantalla
     const videoRect = video.getBoundingClientRect();
 
     const x = videoRect.left + (1 - indexTip.x) * videoRect.width;
