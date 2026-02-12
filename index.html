@@ -28,11 +28,23 @@ canvas {
   pointer-events: none;
 }
 
-.pad {
+/* CONTENEDOR DERECHO */
+.pad-container {
   position: absolute;
-  width: 110px;
-  height: 110px;
-  border-radius: 20px;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  z-index: 5;
+}
+
+/* PADS MÁS CHICOS */
+.pad {
+  width: 80px;
+  height: 80px;
+  border-radius: 15px;
   background: rgba(255,255,255,0.2);
   border: 2px solid white;
   display: flex;
@@ -46,11 +58,6 @@ canvas {
 .pad.active {
   background: rgba(0,255,0,0.6);
 }
-
-#kick { bottom: 240px; left: 15%; }
-#snare { bottom: 240px; right: 15%; }
-#hihat { bottom: 90px; left: 15%; }
-#clap { bottom: 90px; right: 15%; }
 
 #status {
   position:absolute;
@@ -85,10 +92,13 @@ canvas {
 <video id="video" autoplay playsinline></video>
 <canvas id="canvas"></canvas>
 
-<div id="kick" class="pad">Kick</div>
-<div id="snare" class="pad">Snare</div>
-<div id="hihat" class="pad">HiHat</div>
-<div id="clap" class="pad">Clap</div>
+<!-- NUEVA ESTRUCTURA DE PADS -->
+<div class="pad-container">
+  <div id="kick" class="pad">Kick</div>
+  <div id="snare" class="pad">Snare</div>
+  <div id="hihat" class="pad">HiHat</div>
+  <div id="clap" class="pad">Clap</div>
+</div>
 
 <script type="module">
 import {
