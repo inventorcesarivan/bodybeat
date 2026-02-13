@@ -83,16 +83,13 @@ canvas { position:absolute; width:100%; height:100%; }
   <div id="sensValue">Umbral: 240</div>
 
 
-  <h3>🎼 Sonidos personalizados por cuadro</h3>
-  <label>Fila</label>
-  <select id="customRow"></select>
+  
 
-  <label>Columna</label>
-  <select id="customCol"></select>
 
-  <input type="file" id="customSoundUpload" accept="audio/*">
-  <button id="assignSoundBtn">Asignar sonido al cuadro</button>
-
+  
+  <h3>🎛 Asignar sonidos tocando la grilla</h3>
+  <div id="soundGridPanel" style="display:grid; grid-template-columns:repeat(8,1fr); gap:4px; margin-top:10px;"></div>
+  <input type="file" id="gridSoundUpload" accept="audio/*" style="display:none;">
 
   <h3>💾 Presets</h3>
   <button id="exportPresetBtn">Exportar preset</button>
@@ -394,6 +391,71 @@ document.getElementById("importPresetInput").onchange=(event)=>{
 
 // Cargar al inicio
 loadFromStorage();
+
+
+// ===============================
+// PANEL VISUAL DE ASIGNACIÓN
+// ===============================
+
+const soundGridPanel = document.getElementById("soundGridPanel");
+const gridSoundUpload = document.getElementById("gridSoundUpload");
+
+let selectedCellKey = null;
+
+// Crear panel visual 8x6
+function buildSoundPanel(){
+  soundGridPanel.innerHTML = "";
+  for(let r=0;r<ROWS;r++){
+    for(let c=0;c<COLS;c++){
+      const cell = document.createElement("div");
+      const key = r+"-"+c;
+      cell.dataset.key = key;
+      cell.style.aspectRatio = "1/1";
+      cell.style.border = "1px solid rgba(0,255,150,0.5)";
+      cell.style.cursor = "pointer";
+      cell.style.display = "flex";
+      cell.style.alignItems = "center";
+      cell.style.justifyContent = "center";
+      cell.style.fontSize = "10px";
+      cell.style.color = "#00ff99";
+      cell.style.background = customSounds[key] ? "rgba(0,255,150,0.2)" : "transparent";
+      cell.innerText = customSounds[key] ? "✔" : "";
+
+      cell.onclick = ()=>{
+        selectedCellKey = key;
+        gridSoundUpload.click();
+      };
+
+      soundGridPanel.appendChild(cell);
+    }
+  }
+}
+
+// Cuando se sube archivo
+gridSoundUpload.onchange = (event)=>{
+  const file = event.target.files[0];
+  if(!file || !selectedCellKey) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e){
+    customSounds[selectedCellKey] = e.target.result;
+    saveToStorage();
+    buildSoundPanel();
+    alert("Sonido asignado al cuadro "+selectedCellKey);
+  };
+  reader.readAsDataURL(file);
+};
+
+// Reconstruir panel después de cargar storage
+const originalLoad = loadFromStorage;
+loadFromStorage = function(){
+  originalLoad();
+  buildSoundPanel();
+};
+
+buildSoundPanel();
+
+
 
 
 startCamera();
