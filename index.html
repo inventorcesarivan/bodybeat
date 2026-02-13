@@ -93,6 +93,11 @@ canvas { position:absolute; width:100%; height:100%; }
   <input type="file" id="customSoundUpload" accept="audio/*">
   <button id="assignSoundBtn">Asignar sonido al cuadro</button>
 
+
+  <h3>💾 Presets</h3>
+  <button id="exportPresetBtn">Exportar preset</button>
+  <input type="file" id="importPresetInput" accept=".json">
+
 </div>
 
 <video id="video" autoplay playsinline></video>
@@ -326,6 +331,70 @@ function playCustomOrDefault(row,col){
     playCustomOrDefault(row,col);
   }
 }
+
+
+
+// ===============================
+// PERSISTENCIA Y PRESETS PRO
+// ===============================
+
+// Cargar desde localStorage al iniciar
+function loadFromStorage(){
+  const saved = localStorage.getItem("bodybeat_custom_sounds");
+  if(saved){
+    Object.assign(customSounds, JSON.parse(saved));
+    console.log("Sonidos restaurados desde localStorage");
+  }
+}
+
+// Guardar en localStorage
+function saveToStorage(){
+  localStorage.setItem("bodybeat_custom_sounds", JSON.stringify(customSounds));
+}
+
+// Modificar asignación para guardar automáticamente
+assignSoundBtn.onclick=()=>{
+  const file = customSoundUpload.files[0];
+  if(!file) return alert("Selecciona un archivo de audio");
+  const key = customRow.value+"-"+customCol.value;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    customSounds[key] = e.target.result;
+    saveToStorage();
+    alert("Sonido asignado y guardado en el cuadro "+key);
+  };
+  reader.readAsDataURL(file);
+};
+
+// Exportar preset
+document.getElementById("exportPresetBtn").onclick=()=>{
+  const dataStr = JSON.stringify(customSounds);
+  const blob = new Blob([dataStr], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "bodybeat_preset.json";
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+// Importar preset
+document.getElementById("importPresetInput").onchange=(event)=>{
+  const file = event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload=function(e){
+    const imported = JSON.parse(e.target.result);
+    Object.assign(customSounds, imported);
+    saveToStorage();
+    alert("Preset importado correctamente");
+  };
+  reader.readAsText(file);
+};
+
+// Cargar al inicio
+loadFromStorage();
+
 
 startCamera();
 
