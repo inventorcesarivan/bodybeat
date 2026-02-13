@@ -83,23 +83,10 @@ canvas { position:absolute; width:100%; height:100%; }
   <div id="sensValue">Umbral: 240</div>
 
 
-  
-
-
-  
-  
-
-  
   <button id="openCellAssign">Asignar audios por cuadro</button>
-
-  <h3>💾 Presets</h3>
-  <button id="exportPresetBtn">Exportar preset</button>
-  <input type="file" id="importPresetInput" accept=".json">
-
 </div>
 
-
-<div id="cellPanel" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(0,0,0,0.95); border:1px solid #00ff99; padding:20px; display:none; z-index:100;">
+<div id="cellPanel" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(0,0,0,0.95); border:1px solid #00ff99; padding:20px; display:none; z-index:200;">
   <h3 style="color:#00ffcc;">Asignar sonido por cuadro</h3>
   <div id="cellGrid" style="display:grid; grid-template-columns:repeat(8,40px); gap:6px;"></div>
   <input type="file" id="hiddenFile" accept="audio/*" style="display:none;">
@@ -276,13 +263,13 @@ function detectLoop(){
 
     if(triggerMode==="single"){
       if(currentCell!==lastCell){
-        playCustomOrDefault(row,col);
+        playTone(220 + row*20);
         lastCell=currentCell;
       }
     } else {
       const interval=getInterval();
       if(now-lastTriggerTime>interval){
-        playCustomOrDefault(row,col);
+        playTone(220 + row*20);
         lastTriggerTime=now;
       }
     }
@@ -294,227 +281,71 @@ function detectLoop(){
 }
 
 
-const customRow = document.getElementById("customRow");
-const customCol = document.getElementById("customCol");
-const customSoundUpload = document.getElementById("customSoundUpload");
-const assignSoundBtn = document.getElementById("assignSoundBtn");
-
-const customSounds = {};
-
-// Populate selectors
-for(let r=0;r<ROWS;r++){
-  const opt=document.createElement("option");
-  opt.value=r;
-  opt.text="Fila "+r;
-  customRow.appendChild(opt);
-}
-
-for(let c=0;c<COLS;c++){
-  const opt=document.createElement("option");
-  opt.value=c;
-  opt.text="Columna "+c;
-  customCol.appendChild(opt);
-}
-
-assignSoundBtn.onclick=()=>{
-  const file = customSoundUpload.files[0];
-  if(!file) return alert("Selecciona un archivo de audio");
-  const key = customRow.value+"-"+customCol.value;
-  const reader = new FileReader();
-  reader.onload = function(e){
-    customSounds[key] = e.target.result;
-    alert("Sonido asignado al cuadro "+key);
-  };
-  reader.readAsDataURL(file);
-};
-
-function playCustomOrDefault(row,col){
-  const key=row+"-"+col;
-  if(customSounds[key]){
-    const audio = new Audio(customSounds[key]);
-    audio.play();
-  } else {
-    playCustomOrDefault(row,col);
-  }
-}
-
-
 
 // ===============================
-// PERSISTENCIA Y PRESETS PRO
+// HYBRID CELL ASSIGN SYSTEM FIXED
 // ===============================
 
-// Cargar desde localStorage al iniciar
-function loadFromStorage(){
-  const saved = localStorage.getItem("bodybeat_custom_sounds");
-  if(saved){
-    Object.assign(customSounds, JSON.parse(saved));
-    console.log("Sonidos restaurados desde localStorage");
-  }
-}
+const openCellAssign = document.getElementById("openCellAssign");
+const cellPanel = document.getElementById("cellPanel");
+const cellGrid = document.getElementById("cellGrid");
+const hiddenFile = document.getElementById("hiddenFile");
+const closeCellPanelBtn = document.getElementById("closeCellPanelBtn");
 
-// Guardar en localStorage
-function saveToStorage(){
-  localStorage.setItem("bodybeat_custom_sounds", JSON.stringify(customSounds));
-}
+let cellBuffers = Array.from({length:ROWS},()=>Array(COLS).fill(null));
+let selectedCell = null;
 
-// Modificar asignación para guardar automáticamente
-assignSoundBtn.onclick=()=>{
-  const file = customSoundUpload.files[0];
-  if(!file) return alert("Selecciona un archivo de audio");
-  const key = customRow.value+"-"+customCol.value;
-  const reader = new FileReader();
-  reader.onload = function(e){
-    customSounds[key] = e.target.result;
-    saveToStorage();
-    alert("Sonido asignado y guardado en el cuadro "+key);
-  };
-  reader.readAsDataURL(file);
-};
+// Open / Close
+openCellAssign.addEventListener("click", ()=>{
+  cellPanel.style.display = "block";
+});
 
-// Exportar preset
-document.getElementById("exportPresetBtn").onclick=()=>{
-  const dataStr = JSON.stringify(customSounds);
-  const blob = new Blob([dataStr], {type:"application/json"});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "bodybeat_preset.json";
-  a.click();
-  URL.revokeObjectURL(url);
-};
+closeCellPanelBtn.addEventListener("click", ()=>{
+  cellPanel.style.display = "none";
+});
 
-// Importar preset
-document.getElementById("importPresetInput").onchange=(event)=>{
-  const file = event.target.files[0];
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload=function(e){
-    const imported = JSON.parse(e.target.result);
-    Object.assign(customSounds, imported);
-    saveToStorage();
-    alert("Preset importado correctamente");
-  };
-  reader.readAsText(file);
-};
-
-// Cargar al inicio
-loadFromStorage();
-
-
-// ===============================
-// PANEL VISUAL DE ASIGNACIÓN
-// ===============================
-
-const soundGridPanel = document.getElementById("soundGridPanel");
-const gridSoundUpload = document.getElementById("gridSoundUpload");
-
-let selectedCellKey = null;
-
-// Crear panel visual 8x6
-function buildSoundPanel(){
-  soundGridPanel.innerHTML = "";
+// Build grid once DOM ready
+function buildCellGrid(){
+  cellGrid.innerHTML = "";
   for(let r=0;r<ROWS;r++){
     for(let c=0;c<COLS;c++){
-      const cell = document.createElement("div");
-      const key = r+"-"+c;
-      cell.dataset.key = key;
-      cell.style.aspectRatio = "1/1";
-      cell.style.border = "1px solid rgba(0,255,150,0.5)";
-      cell.style.cursor = "pointer";
-      cell.style.display = "flex";
-      cell.style.alignItems = "center";
-      cell.style.justifyContent = "center";
-      cell.style.fontSize = "10px";
-      cell.style.color = "#00ff99";
-      cell.style.background = customSounds[key] ? "rgba(0,255,150,0.2)" : "transparent";
-      cell.innerText = customSounds[key] ? "✔" : "";
+      const btn = document.createElement("div");
+      btn.style.width="40px";
+      btn.style.height="40px";
+      btn.style.background="#111";
+      btn.style.border="1px solid #00ff99";
+      btn.style.cursor="pointer";
 
-      cell.onclick = ()=>{
-        selectedCellKey = key;
-        gridSoundUpload.click();
-      };
+      btn.addEventListener("click", ()=>{
+        selectedCell = {row:r,col:c};
+        hiddenFile.click();
+      });
 
-      soundGridPanel.appendChild(cell);
+      cellGrid.appendChild(btn);
     }
   }
 }
 
-// Cuando se sube archivo
-gridSoundUpload.onchange = (event)=>{
-  const file = event.target.files[0];
-  if(!file || !selectedCellKey) return;
+buildCellGrid();
 
-  const reader = new FileReader();
-  reader.onload = function(e){
-    customSounds[selectedCellKey] = e.target.result;
-    saveToStorage();
-    buildSoundPanel();
-    alert("Sonido asignado al cuadro "+selectedCellKey);
-  };
-  reader.readAsDataURL(file);
-};
+// File loading
+hiddenFile.addEventListener("change", async (e)=>{
+  const file = e.target.files[0];
+  if(!file || !selectedCell || !audioContext) return;
 
-// Reconstruir panel después de cargar storage
-const originalLoad = loadFromStorage;
-loadFromStorage = function(){
-  originalLoad();
-  buildSoundPanel();
-};
+  const arrayBuffer = await file.arrayBuffer();
+  const buffer = await audioContext.decodeAudioData(arrayBuffer);
 
-buildSoundPanel();
-
-
-
-
-
-
-// ===============================
-// SISTEMA HÍBRIDO DE CELDAS (V4.3 STYLE)
-// ===============================
-
-const openCellAssign=document.getElementById("openCellAssign");
-const cellPanel=document.getElementById("cellPanel");
-const cellGrid=document.getElementById("cellGrid");
-const hiddenFile=document.getElementById("hiddenFile");
-const closeCellPanelBtn=document.getElementById("closeCellPanelBtn");
-
-let cellBuffers=Array.from({length:ROWS},()=>Array(COLS).fill(null));
-let selectedCell=null;
-
-openCellAssign.onclick=()=>cellPanel.style.display="block";
-closeCellPanelBtn.onclick=()=>cellPanel.style.display="none";
-
-for(let r=0;r<ROWS;r++){
-  for(let c=0;c<COLS;c++){
-    const btn=document.createElement("div");
-    btn.style.width="40px";
-    btn.style.height="40px";
-    btn.style.background="#111";
-    btn.style.border="1px solid #00ff99";
-    btn.style.cursor="pointer";
-    btn.onclick=()=>{
-      selectedCell={row:r,col:c};
-      hiddenFile.click();
-    };
-    cellGrid.appendChild(btn);
-  }
-}
-
-hiddenFile.onchange=async(e)=>{
-  const file=e.target.files[0];
-  if(!file||!selectedCell) return;
-  const arrayBuffer=await file.arrayBuffer();
-  const buffer=await audioContext.decodeAudioData(arrayBuffer);
-  cellBuffers[selectedCell.row][selectedCell.col]=buffer;
+  cellBuffers[selectedCell.row][selectedCell.col] = buffer;
   saveBuffersToStorage();
-};
+});
 
-function playCell(row,col){
-  const buffer=cellBuffers[row][col];
+// Playback override
+function playCustomOrDefault(row,col){
+  const buffer = cellBuffers[row][col];
   if(buffer){
-    const src=audioContext.createBufferSource();
-    src.buffer=buffer;
+    const src = audioContext.createBufferSource();
+    src.buffer = buffer;
     src.connect(audioContext.destination);
     src.start();
   } else {
@@ -522,44 +353,39 @@ function playCell(row,col){
   }
 }
 
-// Reemplazar reproducción anterior
-function playCustomOrDefault(row,col){
-  playCell(row,col);
-}
-
-// Persistencia usando base64
-async function saveBuffersToStorage(){
+// Persist buffers (compressed Float32)
+function saveBuffersToStorage(){
   const exportObj={};
   for(let r=0;r<ROWS;r++){
     for(let c=0;c<COLS;c++){
-      if(cellBuffers[r][c]){
-        const channelData=cellBuffers[r][c].getChannelData(0);
-        exportObj[r+"-"+c]=Array.from(channelData);
+      const buf = cellBuffers[r][c];
+      if(buf){
+        const data = buf.getChannelData(0);
+        exportObj[r+"-"+c] = Array.from(data);
       }
     }
   }
-  localStorage.setItem("bodybeat_buffers",JSON.stringify(exportObj));
+  localStorage.setItem("bodybeat_buffers", JSON.stringify(exportObj));
 }
 
 function loadBuffersFromStorage(){
-  const saved=localStorage.getItem("bodybeat_buffers");
-  if(!saved||!audioContext) return;
-  const data=JSON.parse(saved);
+  const saved = localStorage.getItem("bodybeat_buffers");
+  if(!saved || !audioContext) return;
+
+  const data = JSON.parse(saved);
   Object.keys(data).forEach(key=>{
-    const [r,c]=key.split("-").map(Number);
-    const arr=new Float32Array(data[key]);
-    const buffer=audioContext.createBuffer(1,arr.length,audioContext.sampleRate);
+    const [r,c] = key.split("-").map(Number);
+    const arr = new Float32Array(data[key]);
+    const buffer = audioContext.createBuffer(1, arr.length, audioContext.sampleRate);
     buffer.copyToChannel(arr,0);
-    cellBuffers[r][c]=buffer;
+    cellBuffers[r][c] = buffer;
   });
 }
 
-// Hook load after audio unlock
-const originalOverlay=overlay.onclick;
-overlay.onclick=()=>{
-  originalOverlay();
+// Load after audio unlock
+overlay.addEventListener("click", ()=>{
   setTimeout(loadBuffersFromStorage,200);
-};
+});
 
 
 startCamera();
