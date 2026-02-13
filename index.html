@@ -82,6 +82,17 @@ canvas { position:absolute; width:100%; height:100%; }
   <input type="range" id="sensitivity" min="150" max="300" value="240">
   <div id="sensValue">Umbral: 240</div>
 
+
+  <h3>🎼 Sonidos personalizados por cuadro</h3>
+  <label>Fila</label>
+  <select id="customRow"></select>
+
+  <label>Columna</label>
+  <select id="customCol"></select>
+
+  <input type="file" id="customSoundUpload" accept="audio/*">
+  <button id="assignSoundBtn">Asignar sonido al cuadro</button>
+
 </div>
 
 <video id="video" autoplay playsinline></video>
@@ -254,13 +265,13 @@ function detectLoop(){
 
     if(triggerMode==="single"){
       if(currentCell!==lastCell){
-        playTone(220 + row*20);
+        playCustomOrDefault(row,col);
         lastCell=currentCell;
       }
     } else {
       const interval=getInterval();
       if(now-lastTriggerTime>interval){
-        playTone(220 + row*20);
+        playCustomOrDefault(row,col);
         lastTriggerTime=now;
       }
     }
@@ -269,6 +280,51 @@ function detectLoop(){
   }
 
   requestAnimationFrame(detectLoop);
+}
+
+
+const customRow = document.getElementById("customRow");
+const customCol = document.getElementById("customCol");
+const customSoundUpload = document.getElementById("customSoundUpload");
+const assignSoundBtn = document.getElementById("assignSoundBtn");
+
+const customSounds = {};
+
+// Populate selectors
+for(let r=0;r<ROWS;r++){
+  const opt=document.createElement("option");
+  opt.value=r;
+  opt.text="Fila "+r;
+  customRow.appendChild(opt);
+}
+
+for(let c=0;c<COLS;c++){
+  const opt=document.createElement("option");
+  opt.value=c;
+  opt.text="Columna "+c;
+  customCol.appendChild(opt);
+}
+
+assignSoundBtn.onclick=()=>{
+  const file = customSoundUpload.files[0];
+  if(!file) return alert("Selecciona un archivo de audio");
+  const key = customRow.value+"-"+customCol.value;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    customSounds[key] = e.target.result;
+    alert("Sonido asignado al cuadro "+key);
+  };
+  reader.readAsDataURL(file);
+};
+
+function playCustomOrDefault(row,col){
+  const key=row+"-"+col;
+  if(customSounds[key]){
+    const audio = new Audio(customSounds[key]);
+    audio.play();
+  } else {
+    playCustomOrDefault(row,col);
+  }
 }
 
 startCamera();
