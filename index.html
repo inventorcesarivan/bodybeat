@@ -87,14 +87,23 @@ canvas { position:absolute; width:100%; height:100%; }
 
 
   
-  <h3>🎛 Asignar sonidos tocando la grilla</h3>
-  <div id="soundGridPanel" style="display:grid; grid-template-columns:repeat(8,1fr); gap:4px; margin-top:10px;"></div>
-  <input type="file" id="gridSoundUpload" accept="audio/*" style="display:none;">
+  
+
+  
+  <button id="openCellAssign">Asignar audios por cuadro</button>
 
   <h3>💾 Presets</h3>
   <button id="exportPresetBtn">Exportar preset</button>
   <input type="file" id="importPresetInput" accept=".json">
 
+</div>
+
+
+<div id="cellPanel" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(0,0,0,0.95); border:1px solid #00ff99; padding:20px; display:none; z-index:100;">
+  <h3 style="color:#00ffcc;">Asignar sonido por cuadro</h3>
+  <div id="cellGrid" style="display:grid; grid-template-columns:repeat(8,40px); gap:6px;"></div>
+  <input type="file" id="hiddenFile" accept="audio/*" style="display:none;">
+  <button id="closeCellPanelBtn">Cerrar</button>
 </div>
 
 <video id="video" autoplay playsinline></video>
@@ -456,6 +465,101 @@ loadFromStorage = function(){
 buildSoundPanel();
 
 
+
+
+
+
+// ===============================
+// SISTEMA HÍBRIDO DE CELDAS (V4.3 STYLE)
+// ===============================
+
+const openCellAssign=document.getElementById("openCellAssign");
+const cellPanel=document.getElementById("cellPanel");
+const cellGrid=document.getElementById("cellGrid");
+const hiddenFile=document.getElementById("hiddenFile");
+const closeCellPanelBtn=document.getElementById("closeCellPanelBtn");
+
+let cellBuffers=Array.from({length:ROWS},()=>Array(COLS).fill(null));
+let selectedCell=null;
+
+openCellAssign.onclick=()=>cellPanel.style.display="block";
+closeCellPanelBtn.onclick=()=>cellPanel.style.display="none";
+
+for(let r=0;r<ROWS;r++){
+  for(let c=0;c<COLS;c++){
+    const btn=document.createElement("div");
+    btn.style.width="40px";
+    btn.style.height="40px";
+    btn.style.background="#111";
+    btn.style.border="1px solid #00ff99";
+    btn.style.cursor="pointer";
+    btn.onclick=()=>{
+      selectedCell={row:r,col:c};
+      hiddenFile.click();
+    };
+    cellGrid.appendChild(btn);
+  }
+}
+
+hiddenFile.onchange=async(e)=>{
+  const file=e.target.files[0];
+  if(!file||!selectedCell) return;
+  const arrayBuffer=await file.arrayBuffer();
+  const buffer=await audioContext.decodeAudioData(arrayBuffer);
+  cellBuffers[selectedCell.row][selectedCell.col]=buffer;
+  saveBuffersToStorage();
+};
+
+function playCell(row,col){
+  const buffer=cellBuffers[row][col];
+  if(buffer){
+    const src=audioContext.createBufferSource();
+    src.buffer=buffer;
+    src.connect(audioContext.destination);
+    src.start();
+  } else {
+    playTone(220 + row*20);
+  }
+}
+
+// Reemplazar reproducción anterior
+function playCustomOrDefault(row,col){
+  playCell(row,col);
+}
+
+// Persistencia usando base64
+async function saveBuffersToStorage(){
+  const exportObj={};
+  for(let r=0;r<ROWS;r++){
+    for(let c=0;c<COLS;c++){
+      if(cellBuffers[r][c]){
+        const channelData=cellBuffers[r][c].getChannelData(0);
+        exportObj[r+"-"+c]=Array.from(channelData);
+      }
+    }
+  }
+  localStorage.setItem("bodybeat_buffers",JSON.stringify(exportObj));
+}
+
+function loadBuffersFromStorage(){
+  const saved=localStorage.getItem("bodybeat_buffers");
+  if(!saved||!audioContext) return;
+  const data=JSON.parse(saved);
+  Object.keys(data).forEach(key=>{
+    const [r,c]=key.split("-").map(Number);
+    const arr=new Float32Array(data[key]);
+    const buffer=audioContext.createBuffer(1,arr.length,audioContext.sampleRate);
+    buffer.copyToChannel(arr,0);
+    cellBuffers[r][c]=buffer;
+  });
+}
+
+// Hook load after audio unlock
+const originalOverlay=overlay.onclick;
+overlay.onclick=()=>{
+  originalOverlay();
+  setTimeout(loadBuffersFromStorage,200);
+};
 
 
 startCamera();
