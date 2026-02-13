@@ -42,6 +42,17 @@ canvas { position:absolute; width:100%; height:100%; }
 
 #closeMenu { background:#ff4444; color:white; cursor:pointer; }
 
+
+@keyframes pulseGlow {
+  0% { transform: scale(1); box-shadow: 0 0 0px #00ff99; }
+  50% { transform: scale(1.08); box-shadow: 0 0 15px #00ff99; }
+  100% { transform: scale(1); box-shadow: 0 0 0px #00ff99; }
+}
+
+.pulseClose {
+  animation: pulseGlow 1s infinite;
+}
+
 </style>
 </head>
 <body>
@@ -61,9 +72,9 @@ canvas { position:absolute; width:100%; height:100%; }
 
   <h3>🔁 Modo Disparo</h3>
   <select id="triggerMode">
-    <option value="single">Una vez por entrada</option>
+    <option value="single" selected>Una vez por entrada</option>
     <option value="slow">Repetición lenta</option>
-    <option value="medium" selected>Repetición media</option>
+    <option value="medium">Repetición media</option>
     <option value="fast">Repetición rápida</option>
   </select>
 
@@ -84,12 +95,24 @@ canvas { position:absolute; width:100%; height:100%; }
 
 
   <button id="openCellAssign">Asignar audios por cuadro</button>
+  <h4>💾 Presets con nombre</h4>
+  <input type="text" id="presetNameInput" placeholder="Nombre del preset">
+  <button id="savePresetBtn">Guardar preset</button>
+  <select id="presetSelect"></select>
+  <button id="loadPresetBtn">Cargar preset</button>
+
 </div>
 
 <div id="cellPanel" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(0,0,0,0.95); border:1px solid #00ff99; padding:20px; display:none; z-index:200;">
   <h3 style="color:#00ffcc;">Asignar sonido por cuadro</h3>
   <div id="cellGrid" style="display:grid; grid-template-columns:repeat(8,40px); gap:6px;"></div>
   <input type="file" id="hiddenFile" accept="audio/*" style="display:none;">
+  
+  <hr style="margin:10px 0;border-color:#00ff99;">
+  <label style="font-size:12px;color:#00ffcc;">Carga por lotes (hasta 48 archivos)</label>
+  <input type="file" id="batchUploadInput" accept="audio/*" multiple>
+
+  <button id="saveCellsBtn">Guardar cambios</button>
   <button id="closeCellPanelBtn">Cerrar</button>
 </div>
 
@@ -263,13 +286,13 @@ function detectLoop(){
 
     if(triggerMode==="single"){
       if(currentCell!==lastCell){
-        playTone(220 + row*20);
+        playCustomOrDefault(row,col);
         lastCell=currentCell;
       }
     } else {
       const interval=getInterval();
       if(now-lastTriggerTime>interval){
-        playTone(220 + row*20);
+        playCustomOrDefault(row,col);
         lastTriggerTime=now;
       }
     }
@@ -283,7 +306,7 @@ function detectLoop(){
 
 
 // ===============================
-// HYBRID CELL ASSIGN SYSTEM FIXED
+// STABLE CUSTOM CELL SYSTEM
 // ===============================
 
 const openCellAssign = document.getElementById("openCellAssign");
@@ -291,35 +314,38 @@ const cellPanel = document.getElementById("cellPanel");
 const cellGrid = document.getElementById("cellGrid");
 const hiddenFile = document.getElementById("hiddenFile");
 const closeCellPanelBtn = document.getElementById("closeCellPanelBtn");
+const saveCellsBtn = document.getElementById("saveCellsBtn");
 
-let cellBuffers = Array.from({length:ROWS},()=>Array(COLS).fill(null));
-let selectedCell = null;
+let cellSounds = {};
+let currentPlayingAudio = null;
+let selectedCellKey = null;
 
 // Open / Close
-openCellAssign.addEventListener("click", ()=>{
-  cellPanel.style.display = "block";
-});
 
-closeCellPanelBtn.addEventListener("click", ()=>{
-  cellPanel.style.display = "none";
-});
+openCellAssign.onclick = ()=> {
+  cellPanel.style.display="block";
+  closeCellPanelBtn.classList.remove("pulseClose");
+};
 
-// Build grid once DOM ready
+closeCellPanelBtn.onclick = ()=> cellPanel.style.display="none";
+
+// Build grid
 function buildCellGrid(){
-  cellGrid.innerHTML = "";
+  cellGrid.innerHTML="";
   for(let r=0;r<ROWS;r++){
     for(let c=0;c<COLS;c++){
-      const btn = document.createElement("div");
+      const key=r+"-"+c;
+      const btn=document.createElement("div");
       btn.style.width="40px";
       btn.style.height="40px";
-      btn.style.background="#111";
+      btn.style.background = cellSounds[key] ? "#00aa66" : "#111";
       btn.style.border="1px solid #00ff99";
       btn.style.cursor="pointer";
 
-      btn.addEventListener("click", ()=>{
-        selectedCell = {row:r,col:c};
+      btn.onclick=()=>{
+        selectedCellKey=key;
         hiddenFile.click();
-      });
+      };
 
       cellGrid.appendChild(btn);
     }
@@ -328,63 +354,132 @@ function buildCellGrid(){
 
 buildCellGrid();
 
-// File loading
-hiddenFile.addEventListener("change", async (e)=>{
-  const file = e.target.files[0];
-  if(!file || !selectedCell || !audioContext) return;
+// Load file (store base64, lighter than Float32 huge arrays)
+hiddenFile.onchange=(e)=>{
+  const file=e.target.files[0];
+  if(!file || !selectedCellKey) return;
 
-  const arrayBuffer = await file.arrayBuffer();
-  const buffer = await audioContext.decodeAudioData(arrayBuffer);
+  const reader=new FileReader();
+  reader.onload=function(ev){
+    cellSounds[selectedCellKey]=ev.target.result;
+    buildCellGrid();
+  };
+  reader.readAsDataURL(file);
+};
 
-  cellBuffers[selectedCell.row][selectedCell.col] = buffer;
-  saveBuffersToStorage();
-});
+// Manual save
+saveCellsBtn.onclick=()=>{
+  localStorage.setItem("bodybeat_cell_sounds", JSON.stringify(cellSounds));
+  
+  alert("Cambios guardados correctamente");
+  closeCellPanelBtn.classList.add("pulseClose");
 
-// Playback override
+};
+
+// Load saved
+function loadSavedCells(){
+  const saved=localStorage.getItem("bodybeat_cell_sounds");
+  if(saved){
+    cellSounds=JSON.parse(saved);
+    buildCellGrid();
+  }
+}
+
+// Playback override (NO heavy buffers)
 function playCustomOrDefault(row,col){
-  const buffer = cellBuffers[row][col];
-  if(buffer){
-    const src = audioContext.createBufferSource();
-    src.buffer = buffer;
-    src.connect(audioContext.destination);
-    src.start();
+  const key=row+"-"+col;
+
+  // Stop previous audio if playing
+  if(currentPlayingAudio){
+    currentPlayingAudio.pause();
+    currentPlayingAudio.currentTime = 0;
+    currentPlayingAudio = null;
+  }
+
+  if(cellSounds[key]){
+    const audio=new Audio(cellSounds[key]);
+    currentPlayingAudio = audio;
+    audio.play();
   } else {
     playTone(220 + row*20);
   }
 }
 
-// Persist buffers (compressed Float32)
-function saveBuffersToStorage(){
-  const exportObj={};
-  for(let r=0;r<ROWS;r++){
-    for(let c=0;c<COLS;c++){
-      const buf = cellBuffers[r][c];
-      if(buf){
-        const data = buf.getChannelData(0);
-        exportObj[r+"-"+c] = Array.from(data);
-      }
-    }
-  }
-  localStorage.setItem("bodybeat_buffers", JSON.stringify(exportObj));
-}
+// Replace tone calls
 
-function loadBuffersFromStorage(){
-  const saved = localStorage.getItem("bodybeat_buffers");
-  if(!saved || !audioContext) return;
+loadSavedCells();
 
-  const data = JSON.parse(saved);
-  Object.keys(data).forEach(key=>{
-    const [r,c] = key.split("-").map(Number);
-    const arr = new Float32Array(data[key]);
-    const buffer = audioContext.createBuffer(1, arr.length, audioContext.sampleRate);
-    buffer.copyToChannel(arr,0);
-    cellBuffers[r][c] = buffer;
+
+// ===============================
+// NAMED PRESET SYSTEM
+// ===============================
+
+const presetNameInput = document.getElementById("presetNameInput");
+const savePresetBtn = document.getElementById("savePresetBtn");
+const presetSelect = document.getElementById("presetSelect");
+const loadPresetBtn = document.getElementById("loadPresetBtn");
+
+let allPresets = JSON.parse(localStorage.getItem("bodybeat_named_presets") || "{}");
+
+function refreshPresetList(){
+  presetSelect.innerHTML="";
+  Object.keys(allPresets).forEach(name=>{
+    const opt=document.createElement("option");
+    opt.value=name;
+    opt.text=name;
+    presetSelect.appendChild(opt);
   });
 }
 
-// Load after audio unlock
-overlay.addEventListener("click", ()=>{
-  setTimeout(loadBuffersFromStorage,200);
+refreshPresetList();
+
+savePresetBtn.onclick=()=>{
+  const name=presetNameInput.value.trim();
+  if(!name) return alert("Escribe un nombre para el preset");
+  allPresets[name]=cellSounds;
+  localStorage.setItem("bodybeat_named_presets", JSON.stringify(allPresets));
+  refreshPresetList();
+  alert("Preset guardado correctamente");
+};
+
+loadPresetBtn.onclick=()=>{
+  const name=presetSelect.value;
+  if(!name) return;
+  cellSounds = allPresets[name] || {};
+  buildCellGrid();
+  localStorage.setItem("bodybeat_cell_sounds", JSON.stringify(cellSounds));
+  alert("Preset cargado");
+};
+
+
+
+
+// ===============================
+// BATCH AUDIO UPLOAD SYSTEM
+// ===============================
+
+const batchUploadInput = document.getElementById("batchUploadInput");
+
+batchUploadInput.addEventListener("change", (e)=>{
+  const files = Array.from(e.target.files);
+  if(!files.length) return;
+
+  const maxCells = ROWS * COLS;
+  const limit = Math.min(files.length, maxCells);
+
+  files.slice(0, limit).forEach((file, index)=>{
+    const reader = new FileReader();
+    reader.onload = function(ev){
+      const row = Math.floor(index / COLS);
+      const col = index % COLS;
+      const key = row + "-" + col;
+      cellSounds[key] = ev.target.result;
+      buildCellGrid();
+    };
+    reader.readAsDataURL(file);
+  });
+
+  alert("Carga por lotes completada en orden de grilla (izq→der, arriba→abajo)");
 });
 
 
