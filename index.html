@@ -113,8 +113,9 @@ pointer-events:none;
 <div id="mainMenu">
 <h2 style="text-align:center;color:#e0c3ff;">BodyBeat Control</h2>
 <button class="menuButton" onclick="openPanel('settingsPanel')">Configuración</button>
-<button class="menuButton" onclick="openPanel('assignPanel')">Asignación por Cuadro</button>
-<button class="menuButton" onclick="openPanel('loadPanel')">Carga Masiva</button>
+<button class="menuButton" onclick="openPanel('unifiedPanel')">Gestión de Sonidos</button>
+
+
 <button class="menuButton" onclick="toggleMirror()">Invertir Cámara</button>
 <button class="menuButton" onclick="closeMain()">Cerrar</button>
 </div>
@@ -481,6 +482,163 @@ activeLoops={};
 }
 
 function toggleMirror(){mirror=!mirror;}
+
+
+// -------- UNIFIED SOUND PANEL --------
+
+document.addEventListener("DOMContentLoaded", () => {
+
+    const unifiedGrid = document.getElementById("unifiedGrid");
+    let selectedCell = null;
+
+    function buildUnifiedGrid(){
+        unifiedGrid.innerHTML = "";
+        for(let r=0;r<ROWS;r++){
+            for(let c=0;c<COLS;c++){
+                let div=document.createElement("div");
+                div.className="assignCell "+(c===0||c===COLS-1?"sideCell":"centerCell");
+                div.innerText=r+"-"+c;
+                div.onclick=()=>{
+                    selectedCell={r,c};
+                    fileSingle.click();
+                };
+                unifiedGrid.appendChild(div);
+            }
+        }
+    }
+
+    buildUnifiedGrid();
+
+    fileSingle.onchange=e=>{
+        let file=e.target.files[0];
+        if(!file||!selectedCell) return;
+        let reader=new FileReader();
+        reader.onload=ev=>{
+            audioContext.decodeAudioData(ev.target.result,b=>{
+                if(selectedCell.c===0||selectedCell.c===COLS-1)
+                    sideBuffers[selectedCell.r]=b;
+                else
+                    centerBuffers[selectedCell.r]=b;
+            });
+        };
+        reader.readAsArrayBuffer(file);
+    };
+
+    fileCenter.onchange=e=>{
+        [...e.target.files].forEach((f,i)=>{
+            let reader=new FileReader();
+            reader.onload=ev=>audioContext.decodeAudioData(ev.target.result,b=>centerBuffers[i]=b);
+            reader.readAsArrayBuffer(f);
+        });
+    };
+
+    fileSides.onchange=e=>{
+        [...e.target.files].forEach((f,i)=>{
+            let reader=new FileReader();
+            reader.onload=ev=>audioContext.decodeAudioData(ev.target.result,b=>sideBuffers[i]=b);
+            reader.readAsArrayBuffer(f);
+        });
+    };
+
+    window.loadFromLink = async function(){
+        const url=document.getElementById("externalLink").value.trim();
+        if(!url||!selectedCell) return alert("Selecciona un cuadro y pega un enlace válido.");
+
+        try{
+            const response=await fetch(url);
+            const arrayBuffer=await response.arrayBuffer();
+            audioContext.decodeAudioData(arrayBuffer,b=>{
+                if(selectedCell.c===0||selectedCell.c===COLS-1)
+                    sideBuffers[selectedCell.r]=b;
+                else
+                    centerBuffers[selectedCell.r]=b;
+            });
+        }catch(err){
+            alert("Error cargando el enlace. Verifica que permita CORS.");
+            console.error(err);
+        }
+    };
+
+});
+
+
+
+// ---- MASS LINK LOADERS ----
+
+window.loadMassCenterFromLinks = async function(){
+    const raw = document.getElementById("massCenterLinks").value.trim();
+    if(!raw) return alert("Agrega al menos un link para el centro.");
+    const links = raw.split(/[,\n]+/).map(l=>l.trim()).filter(Boolean);
+
+    for(let i=0;i<links.length && i<ROWS;i++){
+        try{
+            const response = await fetch(links[i]);
+            const buffer = await response.arrayBuffer();
+            audioContext.decodeAudioData(buffer,b=>{
+                centerBuffers[i] = b;
+            });
+        }catch(err){
+            console.error("Error cargando centro:",links[i],err);
+        }
+    }
+};
+
+window.loadMassSidesFromLinks = async function(){
+    const raw = document.getElementById("massSideLinks").value.trim();
+    if(!raw) return alert("Agrega al menos un link para los laterales.");
+    const links = raw.split(/[,\n]+/).map(l=>l.trim()).filter(Boolean);
+
+    for(let i=0;i<links.length && i<ROWS;i++){
+        try{
+            const response = await fetch(links[i]);
+            const buffer = await response.arrayBuffer();
+            audioContext.decodeAudioData(buffer,b=>{
+                sideBuffers[i] = b;
+            });
+        }catch(err){
+            console.error("Error cargando lateral:",links[i],err);
+        }
+    }
+};
+
 </script>
+
+<div id="unifiedPanel" class="subPanel">
+<div class="closeBtn" onclick="closePanel('unifiedPanel')">✕</div>
+<h3>Gestión de Sonidos</h3>
+
+<div class="assignGrid" id="unifiedGrid"></div>
+
+<br>
+
+<label>Cargar desde enlace externo:</label>
+<input type="text" id="externalLink" placeholder="https://..." style="width:100%;margin-top:5px;">
+<button onclick="loadFromLink()">Cargar en cuadro seleccionado</button>
+
+<hr style="margin:15px 0;">
+
+<button onclick="fileCenter.click()">Carga Masiva Centro</button>
+<button onclick="fileSides.click()">Carga Masiva Laterales</button>
+<hr style="margin:15px 0;">
+
+<h4>Carga Masiva por Link</h4>
+
+<label>Centro (links separados por coma o salto de línea)</label>
+<textarea id="massCenterLinks" style="width:100%;height:70px;"></textarea>
+<button onclick="loadMassCenterFromLinks()">Cargar Centro por Links</button>
+
+<br><br>
+
+<label>Laterales (links separados por coma o salto de línea)</label>
+<textarea id="massSideLinks" style="width:100%;height:70px;"></textarea>
+<button onclick="loadMassSidesFromLinks()">Cargar Laterales por Links</button>
+
+
+<input type="file" id="fileSingle" accept="audio/*" hidden>
+<input type="file" id="fileCenter" accept="audio/*" multiple hidden>
+<input type="file" id="fileSides" accept="audio/*" multiple hidden>
+
+</div>
+
 </body>
 </html>
