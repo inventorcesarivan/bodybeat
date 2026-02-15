@@ -8,15 +8,7 @@
 
 <style>
 body{margin:0;overflow:hidden;background:#050b18;font-family:Arial;}
-video{
-position:absolute;
-top:0;
-left:0;
-width:1px;
-height:1px;
-opacity:0;
-pointer-events:none;
-}
+video{display:none;}
 canvas{position:absolute;width:100vw;height:100vh;}
 
 #overlay{
@@ -100,6 +92,16 @@ z-index:200;
 box-shadow:0 0 12px #ff00ff;
 }
 
+video{
+position:absolute;
+top:0;
+left:0;
+width:1px;
+height:1px;
+opacity:0;
+pointer-events:none;
+}
+
 </style>
 </head>
 <body>
@@ -179,7 +181,6 @@ overlay.style.display="none";
 let currentStream = null;
 let currentFacing = "environment";
 let isStartingCamera = false;
-let loopStarted = false;
 
 async function initCamera() {
 
@@ -210,10 +211,7 @@ async function initCamera() {
         analysisCanvas.width = video.videoWidth;
         analysisCanvas.height = video.videoHeight;
 
-        if (!loopStarted) {
-            loopStarted = true;
-            requestAnimationFrame(loop);
-        }
+        startRendering();
 
     } catch (err) {
         console.error("Camera error:", err);
@@ -222,7 +220,40 @@ async function initCamera() {
     isStartingCamera = false;
 }
 
+function startRendering(){
+
+    function renderFrame(){
+
+        if(video.readyState >= 2){
+            ctx.save();
+            if(mirror){
+                ctx.scale(-1,1);
+                ctx.drawImage(video,-canvas.width,0,canvas.width,canvas.height);
+            }else{
+                ctx.drawImage(video,0,0,canvas.width,canvas.height);
+            }
+            ctx.restore();
+
+            drawGrid();
+            detectLight();
+        }
+
+        if(video.requestVideoFrameCallback){
+            video.requestVideoFrameCallback(renderFrame);
+        }else{
+            requestAnimationFrame(renderFrame);
+        }
+    }
+
+    if(video.requestVideoFrameCallback){
+        video.requestVideoFrameCallback(renderFrame);
+    }else{
+        requestAnimationFrame(renderFrame);
+    }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
+
     initCamera();
 
     const btn = document.getElementById("camSwitchBtn");
@@ -230,6 +261,7 @@ document.addEventListener("DOMContentLoaded", () => {
         currentFacing = currentFacing === "environment" ? "user" : "environment";
         await initCamera();
     };
+
 });
 
 function loop(){
