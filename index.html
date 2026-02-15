@@ -141,16 +141,41 @@ masterGain.gain.value=0.9;
 overlay.style.display="none";
 };
 
+
 /* CAMERA */
-navigator.mediaDevices.getUserMedia({video:true}).then(stream=>{
-video.srcObject=stream;
-video.onloadeddata=()=>{
-canvas.width=video.videoWidth;
-canvas.height=video.videoHeight;
-analysisCanvas.width=video.videoWidth;
-analysisCanvas.height=video.videoHeight;
-loop();
-};
+navigator.mediaDevices.getUserMedia({
+    video:{
+        facingMode:"environment",
+        width:{ideal:1280},
+        height:{ideal:720}
+    },
+    audio:false
+}).then(stream=>{
+    video.srcObject=stream;
+    video.setAttribute("playsinline", true);
+    video.muted = true;
+
+    const startVideo = async ()=>{
+        try{
+            await video.play();
+        }catch(e){
+            console.log("Autoplay prevented, waiting for user gesture");
+        }
+    };
+
+    video.onloadedmetadata=()=>{
+        startVideo();
+    };
+
+    video.onplaying=()=>{
+        canvas.width=video.videoWidth;
+        canvas.height=video.videoHeight;
+        analysisCanvas.width=video.videoWidth;
+        analysisCanvas.height=video.videoHeight;
+        loop();
+    };
+}).catch(err=>{
+    console.error("Camera error:",err);
 });
 
 function loop(){
