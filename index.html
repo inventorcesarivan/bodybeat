@@ -144,43 +144,33 @@ overlay.style.display="none";
 
 /* CAMERA */
 navigator.mediaDevices.getUserMedia({
-    video:{
-        facingMode:"environment",
-        width:{ideal:1280},
-        height:{ideal:720}
-    },
-    audio:false
+    video: { facingMode: "environment" },
+    audio: false
 }).then(stream=>{
-    video.srcObject=stream;
+    video.srcObject = stream;
     video.setAttribute("playsinline", true);
     video.muted = true;
 
-    const startVideo = async ()=>{
-        try{
-            await video.play();
-        }catch(e){
-            console.log("Autoplay prevented, waiting for user gesture");
-        }
-    };
+    video.addEventListener("loadedmetadata", ()=>{
+        video.play();
+    });
 
-    video.onloadedmetadata=()=>{
-        startVideo();
-    };
+    video.addEventListener("playing", ()=>{
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        analysisCanvas.width = video.videoWidth;
+        analysisCanvas.height = video.videoHeight;
+        requestAnimationFrame(loop);
+    });
 
-    video.onplaying=()=>{
-        canvas.width=video.videoWidth;
-        canvas.height=video.videoHeight;
-        analysisCanvas.width=video.videoWidth;
-        analysisCanvas.height=video.videoHeight;
-        loop();
-    };
 }).catch(err=>{
-    console.error("Camera error:",err);
+    console.error("Camera error:", err);
 });
 
 
+
 function loop(){
-    if(video.readyState >= 2){ // ensure frame is available
+    if(video.readyState >= 2){
         ctx.save();
         if(mirror){
             ctx.scale(-1,1);
@@ -189,10 +179,11 @@ function loop(){
             ctx.drawImage(video,0,0,canvas.width,canvas.height);
         }
         ctx.restore();
+
+        detectLight();
     }
 
     drawGrid();
-    detectLight();
     requestAnimationFrame(loop);
 }
 
@@ -212,7 +203,7 @@ ctx.fillStyle=(c===0||c===COLS-1)?"#003d2f":"rgba(0,90,0,0.2)";
 ctx.fillRect(x,y,w,h);
 
 if(activeLoops[key]){
-ctx.fillStyle="rgba(0,255,255,0.75)";
+ctx.fillStyle="rgba(0,255,0,0.85)";
 ctx.fillRect(x,y,w,h);
 }
 
@@ -230,21 +221,24 @@ ctx.strokeRect(x,y,w,h);
 
 /* CLICK */
 
-canvas.addEventListener("touchstart",e=>{
+canvas.addEventListener("touchstart", function(e){
+    if(!audioContext) return;
     e.preventDefault();
-    const touch=e.touches[0];
-    const rect=canvas.getBoundingClientRect();
-    const scaleX=canvas.width/rect.width;
-    const scaleY=canvas.height/rect.height;
-    let x=(touch.clientX-rect.left)*scaleX;
-    let y=(touch.clientY-rect.top)*scaleY;
+
+    const touch = e.touches[0];
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width/rect.width;
+    const scaleY = canvas.height/rect.height;
+
+    let x = (touch.clientX-rect.left)*scaleX;
+    let y = (touch.clientY-rect.top)*scaleY;
 
     if(mirror) x = canvas.width - x;
 
     const col=Math.floor(x/(canvas.width/COLS));
     const row=Math.floor(y/(canvas.height/ROWS));
     triggerCell(row,col);
-},{passive:false});
+}, {passive:false});
 
 canvas.addEventListener("click",e=>{
 if(!audioContext) return;
@@ -325,7 +319,10 @@ best={row:r,col:c};
 }
 }
 
-if(!best||bestScore<sensitivity) return;
+if(!best||bestScore<sensitivity){
+        lastCenterCell=null;
+        return;
+    }
 
 let col = mirror ? (COLS-1-best.col) : best.col;
 let key=best.row+"-"+col;
@@ -415,13 +412,6 @@ function resetLoops(){
 for(let k in activeLoops){try{activeLoops[k].stop();}catch(e){}}
 activeLoops={};
 }
-
-
-document.addEventListener("visibilitychange", ()=>{
-    if(document.visibilityState === "visible" && video.srcObject){
-        video.play().catch(()=>{});
-    }
-});
 
 function toggleMirror(){mirror=!mirror;}
 </script>
