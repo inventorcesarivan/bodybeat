@@ -49,6 +49,12 @@ box-shadow:0 0 12px #ff00ff;
 }
 
 .subPanel{
+max-height:85vh;
+max-width:95vw;
+overflow:auto;
+overflow-x:auto;
+overflow-y:auto;
+
 position:fixed;top:50%;left:50%;
 transform:translate(-50%,-50%);
 background:#0a1833;border:3px solid #ff00ff;
@@ -61,6 +67,7 @@ min-width:360px;box-shadow:0 0 25px #ff00ff;
 input[type=range]{width:100%;}
 
 .assignGrid{
+min-width:600px;
 display:grid;
 grid-template-columns:repeat(10,1fr);
 gap:3px;margin-top:10px;
@@ -102,6 +109,10 @@ opacity:0;
 pointer-events:none;
 }
 
+
+button[onclick*="assignPanel"]{display:none !important;}
+button[onclick*="loadPanel"]{display:none !important;}
+
 </style>
 </head>
 <body>
@@ -114,8 +125,9 @@ pointer-events:none;
 <h2 style="text-align:center;color:#e0c3ff;">BodyBeat Control</h2>
 <button class="menuButton" onclick="openPanel('settingsPanel')">Configuración</button>
 <button class="menuButton" onclick="openPanel('unifiedPanel')">Gestión de Sonidos</button>
-
-
+<button class="menuButton" onclick="openPanel('localLoadPanel')">Carga Local</button>
+<button class="menuButton" onclick="openPanel('assignPanel')">Asignación por Cuadro</button>
+<button class="menuButton" onclick="openPanel('loadPanel')">Carga Masiva</button>
 <button class="menuButton" onclick="toggleMirror()">Invertir Cámara</button>
 <button class="menuButton" onclick="closeMain()">Cerrar</button>
 </div>
@@ -484,122 +496,157 @@ activeLoops={};
 function toggleMirror(){mirror=!mirror;}
 
 
-// -------- UNIFIED SOUND PANEL --------
+// -------- UNIFIED PANEL SYSTEM --------
 
-document.addEventListener("DOMContentLoaded", () => {
+let centerLinks = {};
+let sideLinks = {};
+window.selectedCell = null;
 
-    const unifiedGrid = document.getElementById("unifiedGrid");
-    let selectedCell = null;
+document.addEventListener("DOMContentLoaded", ()=>{
 
-    function buildUnifiedGrid(){
-        unifiedGrid.innerHTML = "";
+    const grid = document.getElementById("unifiedGrid");
+
+    function buildGrid(){
+        grid.innerHTML="";
         for(let r=0;r<ROWS;r++){
             for(let c=0;c<COLS;c++){
                 let div=document.createElement("div");
                 div.className="assignCell "+(c===0||c===COLS-1?"sideCell":"centerCell");
+                if((c===0||c===COLS-1)&&sideBuffers[r]) div.classList.add("loaded");
+                if(c>0&&c<COLS-1&&centerBuffers[r]) div.classList.add("loaded");
                 div.innerText=r+"-"+c;
-                div.onclick=()=>{
-                    selectedCell={r,c};
-                    fileSingle.click();
-                };
-                unifiedGrid.appendChild(div);
+                div.onclick=()=>{window.selectedCell={r,c};};
+                grid.appendChild(div);
             }
         }
     }
 
-    buildUnifiedGrid();
+    buildGrid();
 
-    fileSingle.onchange=e=>{
-        let file=e.target.files[0];
-        if(!file||!selectedCell) return;
-        let reader=new FileReader();
-        reader.onload=ev=>{
-            audioContext.decodeAudioData(ev.target.result,b=>{
-                if(selectedCell.c===0||selectedCell.c===COLS-1)
-                    sideBuffers[selectedCell.r]=b;
-                else
-                    centerBuffers[selectedCell.r]=b;
-            });
-        };
-        reader.readAsArrayBuffer(file);
-    };
-
-    fileCenter.onchange=e=>{
-        [...e.target.files].forEach((f,i)=>{
-            let reader=new FileReader();
-            reader.onload=ev=>audioContext.decodeAudioData(ev.target.result,b=>centerBuffers[i]=b);
-            reader.readAsArrayBuffer(f);
-        });
-    };
-
-    fileSides.onchange=e=>{
-        [...e.target.files].forEach((f,i)=>{
-            let reader=new FileReader();
-            reader.onload=ev=>audioContext.decodeAudioData(ev.target.result,b=>sideBuffers[i]=b);
-            reader.readAsArrayBuffer(f);
-        });
-    };
-
-    window.loadFromLink = async function(){
-        const url=document.getElementById("externalLink").value.trim();
-        if(!url||!selectedCell) return alert("Selecciona un cuadro y pega un enlace válido.");
-
-        try{
-            const response=await fetch(url);
-            const arrayBuffer=await response.arrayBuffer();
-            audioContext.decodeAudioData(arrayBuffer,b=>{
-                if(selectedCell.c===0||selectedCell.c===COLS-1)
-                    sideBuffers[selectedCell.r]=b;
-                else
-                    centerBuffers[selectedCell.r]=b;
-            });
-        }catch(err){
-            alert("Error cargando el enlace. Verifica que permita CORS.");
-            console.error(err);
-        }
-    };
+    window.refreshGrid=buildGrid; window.buildGrid = buildGrid;
 
 });
 
+// -------- SINGLE LINK LOAD --------
 
+async function loadFromLink(){
+    const url=document.getElementById("externalLink").value.trim();
+    if(!url||!window.selectedCell) return alert("Selecciona cuadro y link.");
 
-// ---- MASS LINK LOADERS ----
+    const res=await fetch(url);
+    const buf=await res.arrayBuffer();
 
-window.loadMassCenterFromLinks = async function(){
-    const raw = document.getElementById("massCenterLinks").value.trim();
-    if(!raw) return alert("Agrega al menos un link para el centro.");
-    const links = raw.split(/[,\n]+/).map(l=>l.trim()).filter(Boolean);
+    audioContext.decodeAudioData(buf,b=>{
+        if(window.selectedCell.c===0||window.selectedCell.c===COLS-1){
+            sideBuffers[window.selectedCell.r]=b;
+            sideLinks[window.selectedCell.r]=url;
+        }else{
+            centerBuffers[window.selectedCell.r]=b;
+            centerLinks[window.selectedCell.r]=url;
+        }
+        if(window.refreshGrid) window.refreshGrid();
+    });
+}
+
+// -------- MASS LOAD --------
+
+async function loadMassCenter(){
+    const raw=document.getElementById("massCenterLinks").value.trim();
+    const links=raw.split(/[\n,]+/).map(l=>l.trim()).filter(Boolean);
 
     for(let i=0;i<links.length && i<ROWS;i++){
-        try{
-            const response = await fetch(links[i]);
-            const buffer = await response.arrayBuffer();
-            audioContext.decodeAudioData(buffer,b=>{
-                centerBuffers[i] = b;
-            });
-        }catch(err){
-            console.error("Error cargando centro:",links[i],err);
-        }
+        const res=await fetch(links[i]);
+        const buf=await res.arrayBuffer();
+        audioContext.decodeAudioData(buf,b=>{
+            centerBuffers[i]=b;
+            centerLinks[i]=links[i];
+            if(window.refreshGrid) window.refreshGrid();
+        });
     }
-};
+}
 
-window.loadMassSidesFromLinks = async function(){
-    const raw = document.getElementById("massSideLinks").value.trim();
-    if(!raw) return alert("Agrega al menos un link para los laterales.");
-    const links = raw.split(/[,\n]+/).map(l=>l.trim()).filter(Boolean);
+async function loadMassSides(){
+    const raw=document.getElementById("massSideLinks").value.trim();
+    const links=raw.split(/[\n,]+/).map(l=>l.trim()).filter(Boolean);
 
     for(let i=0;i<links.length && i<ROWS;i++){
-        try{
-            const response = await fetch(links[i]);
-            const buffer = await response.arrayBuffer();
-            audioContext.decodeAudioData(buffer,b=>{
-                sideBuffers[i] = b;
-            });
-        }catch(err){
-            console.error("Error cargando lateral:",links[i],err);
-        }
+        const res=await fetch(links[i]);
+        const buf=await res.arrayBuffer();
+        audioContext.decodeAudioData(buf,b=>{
+            sideBuffers[i]=b;
+            sideLinks[i]=links[i];
+            if(window.refreshGrid) window.refreshGrid();
+        });
     }
-};
+}
+
+// -------- PRESET (LINKS ONLY) --------
+
+function savePreset(){
+    localStorage.setItem("bodybeat_links", JSON.stringify({centerLinks,sideLinks}));
+    alert("Preset guardado.");
+}
+
+async function loadPreset(){
+    const data=JSON.parse(localStorage.getItem("bodybeat_links"));
+    if(!data) return alert("No hay preset.");
+
+    centerLinks=data.centerLinks||{};
+    sideLinks=data.sideLinks||{};
+
+    for(let r in centerLinks){
+        const res=await fetch(centerLinks[r]);
+        const buf=await res.arrayBuffer();
+        audioContext.decodeAudioData(buf,b=>centerBuffers[r]=b);
+    }
+
+    for(let r in sideLinks){
+        const res=await fetch(sideLinks[r]);
+        const buf=await res.arrayBuffer();
+        audioContext.decodeAudioData(buf,b=>sideBuffers[r]=b);
+    }
+
+    if(window.refreshGrid) window.refreshGrid();
+    alert("Preset cargado.");
+}
+
+
+
+
+// -------- LOCAL FILE LOAD --------
+
+function loadLocalCenter(){
+    const files = document.getElementById("localCenterFiles").files;
+    if(!files.length) return;
+
+    [...files].forEach((file,i)=>{
+        const reader = new FileReader();
+        reader.onload = ev=>{
+            audioContext.decodeAudioData(ev.target.result,b=>{
+                centerBuffers[i]=b;
+                if(window.refreshGrid) window.refreshGrid();
+            });
+        };
+        reader.readAsArrayBuffer(file);
+    });
+}
+
+function loadLocalSides(){
+    const files = document.getElementById("localSideFiles").files;
+    if(!files.length) return;
+
+    [...files].forEach((file,i)=>{
+        const reader = new FileReader();
+        reader.onload = ev=>{
+            audioContext.decodeAudioData(ev.target.result,b=>{
+                sideBuffers[i]=b;
+                if(window.refreshGrid) window.refreshGrid();
+            });
+        };
+        reader.readAsArrayBuffer(file);
+    });
+}
+
 
 </script>
 
@@ -609,35 +656,50 @@ window.loadMassSidesFromLinks = async function(){
 
 <div class="assignGrid" id="unifiedGrid"></div>
 
-<br>
+<hr>
 
-<label>Cargar desde enlace externo:</label>
-<input type="text" id="externalLink" placeholder="https://..." style="width:100%;margin-top:5px;">
+<h4>Cargar por Link (individual)</h4>
+<input type="text" id="externalLink" placeholder="https://..." style="width:100%;margin-bottom:5px;">
 <button onclick="loadFromLink()">Cargar en cuadro seleccionado</button>
 
-<hr style="margin:15px 0;">
-
-<button onclick="fileCenter.click()">Carga Masiva Centro</button>
-<button onclick="fileSides.click()">Carga Masiva Laterales</button>
-<hr style="margin:15px 0;">
+<hr>
 
 <h4>Carga Masiva por Link</h4>
+<label>Centro</label>
+<textarea id="massCenterLinks" style="width:100%;height:60px;"></textarea>
+<button onclick="loadMassCenter()">Cargar Centro</button>
 
-<label>Centro (links separados por coma o salto de línea)</label>
-<textarea id="massCenterLinks" style="width:100%;height:70px;"></textarea>
-<button onclick="loadMassCenterFromLinks()">Cargar Centro por Links</button>
+<label>Laterales</label>
+<textarea id="massSideLinks" style="width:100%;height:60px;"></textarea>
+<button onclick="loadMassSides()">Cargar Laterales</button>
+
+<hr>
+
+<h4>Preset (solo links)</h4>
+<button onclick="savePreset()">Guardar Preset</button>
+<button onclick="loadPreset()">Cargar Preset</button>
+
+<br><br>
+<button onclick="closePanel('unifiedPanel')">Guardar y Cerrar</button>
+
+<input type="file" id="fileSingle" accept="audio/*" hidden>
+</div>
+
+
+<div id="localLoadPanel" class="subPanel">
+<div class="closeBtn" onclick="closePanel('localLoadPanel')">✕</div>
+<h3>Carga Local de Archivos</h3>
+
+<input type="file" id="localCenterFiles" multiple accept="audio/*"><br><br>
+<button onclick="loadLocalCenter()">Cargar Centro</button>
 
 <br><br>
 
-<label>Laterales (links separados por coma o salto de línea)</label>
-<textarea id="massSideLinks" style="width:100%;height:70px;"></textarea>
-<button onclick="loadMassSidesFromLinks()">Cargar Laterales por Links</button>
+<input type="file" id="localSideFiles" multiple accept="audio/*"><br><br>
+<button onclick="loadLocalSides()">Cargar Laterales</button>
 
-
-<input type="file" id="fileSingle" accept="audio/*" hidden>
-<input type="file" id="fileCenter" accept="audio/*" multiple hidden>
-<input type="file" id="fileSides" accept="audio/*" multiple hidden>
-
+<br><br>
+<button onclick="closePanel('localLoadPanel')">Cerrar</button>
 </div>
 
 </body>
