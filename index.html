@@ -8,7 +8,15 @@
 
 <style>
 body{margin:0;overflow:hidden;background:#050b18;font-family:Arial;}
-video{display:none;}
+video{
+position:absolute;
+top:0;
+left:0;
+width:1px;
+height:1px;
+opacity:0;
+pointer-events:none;
+}
 canvas{position:absolute;width:100vw;height:100vh;}
 
 #overlay{
