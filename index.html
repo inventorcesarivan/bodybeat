@@ -79,13 +79,13 @@ cursor:pointer;
 
 #camSwitchBtn{
 position:fixed;
-top:75px;
+bottom:25px;
 left:50%;
 transform:translateX(-50%);
 background:#102a55;
 border:2px solid #ff00ff;
-padding:10px 20px;
-border-radius:25px;
+padding:12px 22px;
+border-radius:30px;
 color:white;
 cursor:pointer;
 z-index:200;
@@ -98,9 +98,7 @@ box-shadow:0 0 12px #ff00ff;
 
 <div id="overlay">Toca para activar sonido</div>
 <button id="menuBtn">MENU</button>
-
 <button id="camSwitchBtn">Cambiar Cámara</button>
-
 
 <div id="mainMenu">
 <h2 style="text-align:center;color:#e0c3ff;">BodyBeat Control</h2>
@@ -170,40 +168,56 @@ overlay.style.display="none";
 
 
 /* CAMERA */
-startCamera();
+let currentFacing = "environment";
+let currentStream = null;
 
-    video.addEventListener("playing", ()=>{
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        analysisCanvas.width = video.videoWidth;
-        analysisCanvas.height = video.videoHeight;
-        requestAnimationFrame(loop);
-    });
-
-}).catch(err=>{
-    console.error("Camera error:", err);
-});
-
-
-
-function loop(){
-    if(video.readyState >= 2){
-        ctx.save();
-        if(mirror){
-            ctx.scale(-1,1);
-            ctx.drawImage(video,-canvas.width,0,canvas.width,canvas.height);
-        }else{
-            ctx.drawImage(video,0,0,canvas.width,canvas.height);
-        }
-        ctx.restore();
-
-        detectLight();
+function initCamera(){
+    if(currentStream){
+        currentStream.getTracks().forEach(t=>t.stop());
     }
 
-    drawGrid();
-    requestAnimationFrame(loop);
+    navigator.mediaDevices.getUserMedia({
+        video:{ facingMode: currentFacing },
+        audio:false
+    }).then(stream=>{
+        currentStream = stream;
+        video.srcObject = stream;
+        video.setAttribute("playsinline", true);
+        video.muted = true;
+
+        video.onloadeddata = ()=>{
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            analysisCanvas.width = video.videoWidth;
+            analysisCanvas.height = video.videoHeight;
+            loop();
+        };
+    }).catch(err=>console.error("Camera error:",err));
 }
 
+initCamera();
+
+document.addEventListener("DOMContentLoaded", ()=>{
+    const btn = document.getElementById("camSwitchBtn");
+    btn.onclick = ()=>{
+        currentFacing = currentFacing === "environment" ? "user" : "environment";
+        initCamera();
+    };
+});
+
+function loop(){
+ctx.save();
+if(mirror){
+ctx.scale(-1,1);
+ctx.drawImage(video,-canvas.width,0,canvas.width,canvas.height);
+}else{
+ctx.drawImage(video,0,0,canvas.width,canvas.height);
+}
+ctx.restore();
+drawGrid();
+detectLight();
+requestAnimationFrame(loop);
+}
 
 function drawGrid(){
 const w=canvas.width/COLS;
@@ -220,7 +234,7 @@ ctx.fillStyle=(c===0||c===COLS-1)?"#003d2f":"rgba(0,90,0,0.2)";
 ctx.fillRect(x,y,w,h);
 
 if(activeLoops[key]){
-ctx.fillStyle="rgba(0,255,0,0.85)";
+ctx.fillStyle="rgba(0,255,180,0.4)";
 ctx.fillRect(x,y,w,h);
 }
 
@@ -237,26 +251,6 @@ ctx.strokeRect(x,y,w,h);
 }
 
 /* CLICK */
-
-canvas.addEventListener("touchstart", function(e){
-    if(!audioContext) return;
-    e.preventDefault();
-
-    const touch = e.touches[0];
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width/rect.width;
-    const scaleY = canvas.height/rect.height;
-
-    let x = (touch.clientX-rect.left)*scaleX;
-    let y = (touch.clientY-rect.top)*scaleY;
-
-    if(mirror) x = canvas.width - x;
-
-    const col=Math.floor(x/(canvas.width/COLS));
-    const row=Math.floor(y/(canvas.height/ROWS));
-    triggerCell(row,col);
-}, {passive:false});
-
 canvas.addEventListener("click",e=>{
 if(!audioContext) return;
 
@@ -336,10 +330,7 @@ best={row:r,col:c};
 }
 }
 
-if(!best||bestScore<sensitivity){
-        lastCenterCell=null;
-        return;
-    }
+if(!best||bestScore<sensitivity) return;
 
 let col = mirror ? (COLS-1-best.col) : best.col;
 let key=best.row+"-"+col;
@@ -431,37 +422,6 @@ activeLoops={};
 }
 
 function toggleMirror(){mirror=!mirror;}
-
-let currentFacing = "environment";
-
-function startCamera(){
-    navigator.mediaDevices.getUserMedia({
-        video:{ facingMode: currentFacing },
-        audio:false
-    }).then(stream=>{
-        video.srcObject = stream;
-        video.setAttribute("playsinline", true);
-        video.muted = true;
-
-        video.onloadedmetadata=()=>video.play();
-        video.onplaying=()=>{
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            analysisCanvas.width = video.videoWidth;
-            analysisCanvas.height = video.videoHeight;
-            requestAnimationFrame(loop);
-        };
-    }).catch(err=>console.error(err));
-}
-
-document.getElementById("camSwitchBtn").onclick=()=>{
-    currentFacing = currentFacing === "environment" ? "user" : "environment";
-    if(video.srcObject){
-        video.srcObject.getTracks().forEach(track=>track.stop());
-    }
-    startCamera();
-};
-
 </script>
 </body>
 </html>
