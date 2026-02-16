@@ -922,7 +922,8 @@ drawGrid = function(){
 
         ctx.fillStyle="#00ffff";
         ctx.font="bold 14px Arial";
-        ctx.fillText(r+1,5,r*h+20);
+        const letters=["A","B","C","D","E","F","G","H"];
+        ctx.fillText(letters[r],5,r*h+20);
         ctx.fillText(r+1,(COLS-1)*w+5,r*h+20);
     }
 };
