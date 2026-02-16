@@ -48,13 +48,7 @@ background:#102a55;color:white;cursor:pointer;
 box-shadow:0 0 12px #ff00ff;
 }
 
-.subPanel{
-max-height:85vh;
-max-width:95vw;
-overflow:auto;
-overflow-x:auto;
-overflow-y:auto;
-
+.subPanel{max-height:85vh;overflow-y:auto;
 position:fixed;top:50%;left:50%;
 transform:translate(-50%,-50%);
 background:#0a1833;border:3px solid #ff00ff;
@@ -67,7 +61,6 @@ min-width:360px;box-shadow:0 0 25px #ff00ff;
 input[type=range]{width:100%;}
 
 .assignGrid{
-min-width:600px;
 display:grid;
 grid-template-columns:repeat(10,1fr);
 gap:3px;margin-top:10px;
@@ -125,7 +118,6 @@ button[onclick*="loadPanel"]{display:none !important;}
 <h2 style="text-align:center;color:#e0c3ff;">BodyBeat Control</h2>
 <button class="menuButton" onclick="openPanel('settingsPanel')">Configuración</button>
 <button class="menuButton" onclick="openPanel('unifiedPanel')">Gestión de Sonidos</button>
-<button class="menuButton" onclick="openPanel('localLoadPanel')">Carga Local</button>
 <button class="menuButton" onclick="openPanel('assignPanel')">Asignación por Cuadro</button>
 <button class="menuButton" onclick="openPanel('loadPanel')">Carga Masiva</button>
 <button class="menuButton" onclick="toggleMirror()">Invertir Cámara</button>
@@ -304,15 +296,30 @@ let key=r+"-"+c;
 
 ctx.fillStyle=(c===0||c===COLS-1)?"#003d2f":"rgba(0,90,0,0.2)";
 ctx.fillRect(x,y,w,h);
+    if(c===0||c===COLS-1){
+        ctx.fillStyle="#00ffff";
+        ctx.font="bold 14px Arial";
+        ctx.fillText(r+1, x+5, y+20);
+    }
 
 if(activeLoops[key]){
 ctx.fillStyle="rgba(0,255,180,0.4)";
 ctx.fillRect(x,y,w,h);
+    if(c===0||c===COLS-1){
+        ctx.fillStyle="#00ffff";
+        ctx.font="bold 14px Arial";
+        ctx.fillText(r+1, x+5, y+20);
+    }
 }
 
 if(flashCells[key]){
 ctx.fillStyle="rgba(255,0,255,0.4)";
 ctx.fillRect(x,y,w,h);
+    if(c===0||c===COLS-1){
+        ctx.fillStyle="#00ffff";
+        ctx.font="bold 14px Arial";
+        ctx.fillText(r+1, x+5, y+20);
+    }
 if(Date.now()-flashCells[key]>120) delete flashCells[key];
 }
 
@@ -523,7 +530,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
 
     buildGrid();
 
-    window.refreshGrid=buildGrid; window.buildGrid = buildGrid;
+    window.refreshGrid=buildGrid;
 
 });
 
@@ -544,7 +551,7 @@ async function loadFromLink(){
             centerBuffers[window.selectedCell.r]=b;
             centerLinks[window.selectedCell.r]=url;
         }
-        if(window.refreshGrid) window.refreshGrid();
+        refreshGrid();
     });
 }
 
@@ -560,7 +567,7 @@ async function loadMassCenter(){
         audioContext.decodeAudioData(buf,b=>{
             centerBuffers[i]=b;
             centerLinks[i]=links[i];
-            if(window.refreshGrid) window.refreshGrid();
+            refreshGrid();
         });
     }
 }
@@ -575,7 +582,7 @@ async function loadMassSides(){
         audioContext.decodeAudioData(buf,b=>{
             sideBuffers[i]=b;
             sideLinks[i]=links[i];
-            if(window.refreshGrid) window.refreshGrid();
+            refreshGrid();
         });
     }
 }
@@ -606,46 +613,319 @@ async function loadPreset(){
         audioContext.decodeAudioData(buf,b=>sideBuffers[r]=b);
     }
 
-    if(window.refreshGrid) window.refreshGrid();
+    refreshGrid();
     alert("Preset cargado.");
 }
 
 
 
 
-// -------- LOCAL FILE LOAD --------
+// ================== DEMO PRO LOOP ENGINE (LATERALS) ==================
 
-function loadLocalCenter(){
-    const files = document.getElementById("localCenterFiles").files;
-    if(!files.length) return;
+let demoActiveEngines = {};
 
-    [...files].forEach((file,i)=>{
-        const reader = new FileReader();
-        reader.onload = ev=>{
-            audioContext.decodeAudioData(ev.target.result,b=>{
-                centerBuffers[i]=b;
-                if(window.refreshGrid) window.refreshGrid();
-            });
-        };
-        reader.readAsArrayBuffer(file);
-    });
+function startDemoEngine(row){
+
+    if(demoActiveEngines[row]){
+        demoActiveEngines[row].stop();
+        delete demoActiveEngines[row];
+        return;
+    }
+
+    const styles = [
+        {bpm:130, type:"techno"},
+        {bpm:124, type:"house"},
+        {bpm:140, type:"trap"},
+        {bpm:92,  type:"hiphop"},
+        {bpm:170, type:"dnb"},
+        {bpm:95,  type:"reggaeton"},
+        {bpm:110, type:"rock"},
+        {bpm:100, type:"ambient"}
+    ];
+
+    const style = styles[row];
+    const engine = createDemoSequencer(style.bpm, style.type);
+    engine.start();
+    demoActiveEngines[row] = engine;
 }
 
-function loadLocalSides(){
-    const files = document.getElementById("localSideFiles").files;
-    if(!files.length) return;
+function createDemoSequencer(bpm,type){
 
-    [...files].forEach((file,i)=>{
-        const reader = new FileReader();
-        reader.onload = ev=>{
-            audioContext.decodeAudioData(ev.target.result,b=>{
-                sideBuffers[i]=b;
-                if(window.refreshGrid) window.refreshGrid();
-            });
-        };
-        reader.readAsArrayBuffer(file);
-    });
+    let currentStep = 0;
+    let nextNoteTime = 0;
+    const steps = 16;
+    const lookAhead = 0.1;
+    const intervalTime = 25;
+    const stepTime = (60/bpm)/4;
+    let timer;
+
+    function schedule(){
+        while(nextNoteTime < audioContext.currentTime + lookAhead){
+            playStep(currentStep, nextNoteTime);
+            nextNoteTime += stepTime;
+            currentStep = (currentStep+1)%steps;
+        }
+    }
+
+    function start(){
+        nextNoteTime = audioContext.currentTime;
+        timer = setInterval(schedule, intervalTime);
+    }
+
+    function stop(){
+        clearInterval(timer);
+    }
+
+    function playStep(step,time){
+
+        function kick(vol){
+            let osc=audioContext.createOscillator();
+            let gain=audioContext.createGain();
+            osc.type="sine";
+            osc.frequency.setValueAtTime(150,time);
+            osc.frequency.exponentialRampToValueAtTime(40,time+0.15);
+            gain.gain.setValueAtTime(vol,time);
+            gain.gain.exponentialRampToValueAtTime(0.001,time+0.2);
+            osc.connect(gain).connect(masterGain);
+            osc.start(time);
+            osc.stop(time+0.2);
+        }
+
+        function snare(){
+            let noise=audioContext.createBufferSource();
+            let buffer=audioContext.createBuffer(1,44100,44100);
+            let data=buffer.getChannelData(0);
+            for(let i=0;i<data.length;i++) data[i]=Math.random()*2-1;
+            noise.buffer=buffer;
+            let gain=audioContext.createGain();
+            gain.gain.setValueAtTime(0.4,time);
+            gain.gain.exponentialRampToValueAtTime(0.001,time+0.2);
+            noise.connect(gain).connect(masterGain);
+            noise.start(time);
+            noise.stop(time+0.2);
+        }
+
+        function hat(vol){
+            let osc=audioContext.createOscillator();
+            let gain=audioContext.createGain();
+            osc.type="square";
+            osc.frequency.value=8000;
+            gain.gain.setValueAtTime(vol,time);
+            gain.gain.exponentialRampToValueAtTime(0.001,time+0.05);
+            osc.connect(gain).connect(masterGain);
+            osc.start(time);
+            osc.stop(time+0.05);
+        }
+
+        switch(type){
+
+            case "techno":
+                if(step%4===0) kick(0.9);
+                if(step%8===4) snare();
+                if(step%2===1) hat(0.2);
+            break;
+
+            case "house":
+                if(step%4===0) kick(0.8);
+                if(step%4===2) snare();
+                if(step%2===1) hat(0.15);
+            break;
+
+            case "trap":
+                if(step%4===0) kick(0.9);
+                if(step===6||step===14) snare();
+                if(step%2===1) hat(0.1);
+            break;
+
+            case "hiphop":
+                if(step%4===0) kick(0.8);
+                if(step===4||step===12) snare();
+                if(step%2===1) hat(0.12);
+            break;
+
+            case "dnb":
+                if(step%2===0) kick(0.7);
+                if(step%4===2) snare();
+                hat(0.08);
+            break;
+
+            case "reggaeton":
+                if(step%4===0||step%4===2) kick(0.85);
+                if(step===6||step===14) snare();
+                hat(0.1);
+            break;
+
+            case "rock":
+                if(step%4===0) kick(0.9);
+                if(step%4===2) snare();
+                if(step%2===1) hat(0.2);
+            break;
+
+            case "ambient":
+                if(step%8===0) kick(0.4);
+                if(step%4===2) hat(0.05);
+            break;
+        }
+    }
+
+    return {start,stop};
 }
+
+// Override lateral trigger behavior if no audio loaded
+const originalTriggerCell = triggerCell;
+triggerCell = function(row,col){
+
+    if(col===0 || col===COLS-1){
+        startDemoEngine(row);
+        return;
+    }
+
+    originalTriggerCell(row,col);
+};
+
+
+
+
+// ================= SAFE PRO ENGINE =================
+
+let proEngines = {};
+let activeLeftPro = [];
+let activeRightPro = [];
+
+function createProEngine(index){
+
+    const bpms=[128,124,122,126,138,170,140,132,118,92,85,105,110,90,100,130];
+    const bpm = bpms[index % bpms.length];
+
+    let step=0;
+    let nextTime=0;
+    const stepTime=(60/bpm)/4;
+    let timer;
+
+    function kick(time){
+        let osc=audioContext.createOscillator();
+        let gain=audioContext.createGain();
+        osc.type="sine";
+        osc.frequency.setValueAtTime(150,time);
+        osc.frequency.exponentialRampToValueAtTime(45,time+0.12);
+        gain.gain.setValueAtTime(1,time);
+        gain.gain.exponentialRampToValueAtTime(0.001,time+0.25);
+        osc.connect(gain).connect(masterGain);
+        osc.start(time);
+        osc.stop(time+0.25);
+    }
+
+    function snare(time){
+        let buffer=audioContext.createBuffer(1,44100,44100);
+        let data=buffer.getChannelData(0);
+        for(let i=0;i<data.length;i++) data[i]=Math.random()*2-1;
+        let src=audioContext.createBufferSource();
+        src.buffer=buffer;
+        let band=audioContext.createBiquadFilter();
+        band.type="bandpass";
+        band.frequency.value=1800;
+        let gain=audioContext.createGain();
+        gain.gain.setValueAtTime(0.5,time);
+        gain.gain.exponentialRampToValueAtTime(0.001,time+0.2);
+        src.connect(band).connect(gain).connect(masterGain);
+        src.start(time);
+        src.stop(time+0.2);
+    }
+
+    function hat(time){
+        let osc=audioContext.createOscillator();
+        let gain=audioContext.createGain();
+        osc.type="square";
+        osc.frequency.value=8000+Math.random()*800;
+        gain.gain.setValueAtTime(0.15,time);
+        gain.gain.exponentialRampToValueAtTime(0.001,time+0.05);
+        osc.connect(gain).connect(masterGain);
+        osc.start(time);
+        osc.stop(time+0.05);
+    }
+
+    function schedule(){
+        while(nextTime<audioContext.currentTime+0.1){
+            if(step%4===0) kick(nextTime);
+            if(step%4===2) snare(nextTime);
+            if(step%2===1) hat(nextTime);
+            nextTime+=stepTime;
+            step=(step+1)%16;
+        }
+    }
+
+    return {
+        start(){
+            nextTime=audioContext.currentTime;
+            timer=setInterval(schedule,25);
+        },
+        stop(){
+            clearInterval(timer);
+        }
+    };
+}
+
+// Safe override triggerCell (only laterals)
+const originalTriggerCellSafe = triggerCell;
+
+triggerCell = function(row,col){
+
+    if(col===0||col===COLS-1){
+
+        const isLeft = col===0;
+        const key = (isLeft?"L":"R")+row;
+        let sideArr = isLeft?activeLeftPro:activeRightPro;
+
+        if(proEngines[key]){
+            proEngines[key].stop();
+            delete proEngines[key];
+            sideArr.splice(sideArr.indexOf(key),1);
+            return;
+        }
+
+        if(sideArr.length>=2){
+            const oldest=sideArr.shift();
+            proEngines[oldest].stop();
+            delete proEngines[oldest];
+        }
+
+        const engine=createProEngine(row+(isLeft?0:8));
+        engine.start();
+        proEngines[key]=engine;
+        sideArr.push(key);
+        return;
+    }
+
+    originalTriggerCellSafe(row,col);
+};
+
+// Visual highlight hook (augment drawGrid safely)
+const originalDrawGridSafe = drawGrid;
+
+drawGrid = function(){
+    originalDrawGridSafe();
+
+    const w=canvas.width/COLS;
+    const h=canvas.height/ROWS;
+
+    for(let r=0;r<ROWS;r++){
+
+        if(proEngines["L"+r]){
+            ctx.fillStyle="rgba(0,150,255,0.6)";
+            ctx.fillRect(0,r*h,w,h);
+        }
+
+        if(proEngines["R"+r]){
+            ctx.fillStyle="rgba(0,255,150,0.6)";
+            ctx.fillRect((COLS-1)*w,r*h,w,h);
+        }
+
+        ctx.fillStyle="#00ffff";
+        ctx.font="bold 14px Arial";
+        ctx.fillText(r+1,5,r*h+20);
+        ctx.fillText(r+1,(COLS-1)*w+5,r*h+20);
+    }
+};
 
 
 </script>
@@ -683,23 +963,6 @@ function loadLocalSides(){
 <button onclick="closePanel('unifiedPanel')">Guardar y Cerrar</button>
 
 <input type="file" id="fileSingle" accept="audio/*" hidden>
-</div>
-
-
-<div id="localLoadPanel" class="subPanel">
-<div class="closeBtn" onclick="closePanel('localLoadPanel')">✕</div>
-<h3>Carga Local de Archivos</h3>
-
-<input type="file" id="localCenterFiles" multiple accept="audio/*"><br><br>
-<button onclick="loadLocalCenter()">Cargar Centro</button>
-
-<br><br>
-
-<input type="file" id="localSideFiles" multiple accept="audio/*"><br><br>
-<button onclick="loadLocalSides()">Cargar Laterales</button>
-
-<br><br>
-<button onclick="closePanel('localLoadPanel')">Cerrar</button>
 </div>
 
 </body>
