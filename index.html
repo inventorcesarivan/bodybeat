@@ -117,9 +117,12 @@ button[onclick*="loadPanel"]{display:none !important;}
 <div id="mainMenu">
 <h2 style="text-align:center;color:#e0c3ff;">BodyBeat Control</h2>
 <button class="menuButton" onclick="openPanel('settingsPanel')">Configuración</button>
-<button class="menuButton" onclick="openPanel('unifiedPanel')">Gestión de Sonidos</button>
+<button class="menuButton" onclick="openPanel('audioManagerPanel')">Carga y gestión de archivos de audio</button>
 <button class="menuButton" onclick="openPanel('assignPanel')">Asignación por Cuadro</button>
 <button class="menuButton" onclick="openPanel('loadPanel')">Carga Masiva</button>
+
+<button class="menuButton" onclick="openModuleManager()">Módulos</button>
+
 <button class="menuButton" onclick="toggleMirror()">Invertir Cámara</button>
 <button class="menuButton" onclick="closeMain()">Cerrar</button>
 </div>
@@ -240,6 +243,13 @@ function startRendering(){
             ctx.restore();
 
             drawGrid();
+
+            if(window.BodyBeat && BodyBeat.hooks && BodyBeat.hooks.afterDraw){
+                BodyBeat.hooks.afterDraw.forEach(fn=>{
+                    try{ fn(); }catch(e){ console.error("Hook error:", e); }
+                });
+            }
+            if(window.BodyBeat){ BodyBeat.updateModules(0); }
             detectLight();
         }
 
@@ -279,6 +289,13 @@ ctx.drawImage(video,0,0,canvas.width,canvas.height);
 }
 ctx.restore();
 drawGrid();
+
+            if(window.BodyBeat && BodyBeat.hooks && BodyBeat.hooks.afterDraw){
+                BodyBeat.hooks.afterDraw.forEach(fn=>{
+                    try{ fn(); }catch(e){ console.error("Hook error:", e); }
+                });
+            }
+            if(window.BodyBeat){ BodyBeat.updateModules(0); }
 detectLight();
 requestAnimationFrame(loop);
 }
@@ -294,8 +311,10 @@ let x=drawCol*w;
 let y=r*h;
 let key=r+"-"+c;
 
-ctx.fillStyle=(c===0||c===COLS-1)?"#003d2f":"rgba(0,90,0,0.2)";
-ctx.fillRect(x,y,w,h);
+if(gridVisible){
+    ctx.fillStyle=(c===0||c===COLS-1)?"#003d2f":"rgba(0,90,0,0.2)";
+    ctx.fillRect(x,y,w,h);
+}
     if(c===0||c===COLS-1){
         ctx.fillStyle="#00ffff";
         ctx.font="bold 14px Arial";
@@ -323,8 +342,10 @@ ctx.fillRect(x,y,w,h);
 if(Date.now()-flashCells[key]>120) delete flashCells[key];
 }
 
-ctx.strokeStyle="rgba(0,255,255,0.6)";
-ctx.strokeRect(x,y,w,h);
+if(gridVisible){
+    ctx.strokeStyle="rgba(0,255,255,0.6)";
+    ctx.strokeRect(x,y,w,h);
+}
 }
 }
 }
@@ -491,7 +512,15 @@ reader.readAsArrayBuffer(f);
 function openPanel(id){document.getElementById(id).style.display="block";}
 function closePanel(id){document.getElementById(id).style.display="none";}
 function closeMain(){mainMenu.style.display="none";}
-menuBtn.onclick=()=>mainMenu.style.display="block";
+
+menuBtn.onclick=()=>{
+    if(mainMenu.style.display==="block"){
+        mainMenu.style.display="none";
+    }else{
+        mainMenu.style.display="block";
+    }
+};
+
 sensSlider.oninput=e=>sensitivity=parseInt(e.target.value);
 volSlider.oninput=e=>{if(masterGain) masterGain.gain.value=parseFloat(e.target.value);};
 
@@ -502,121 +531,9 @@ activeLoops={};
 
 function toggleMirror(){mirror=!mirror;}
 
-
-// -------- UNIFIED PANEL SYSTEM --------
-
-let centerLinks = {};
-let sideLinks = {};
-window.selectedCell = null;
-
-document.addEventListener("DOMContentLoaded", ()=>{
-
-    const grid = document.getElementById("unifiedGrid");
-
-    function buildGrid(){
-        grid.innerHTML="";
-        for(let r=0;r<ROWS;r++){
-            for(let c=0;c<COLS;c++){
-                let div=document.createElement("div");
-                div.className="assignCell "+(c===0||c===COLS-1?"sideCell":"centerCell");
-                if((c===0||c===COLS-1)&&sideBuffers[r]) div.classList.add("loaded");
-                if(c>0&&c<COLS-1&&centerBuffers[r]) div.classList.add("loaded");
-                div.innerText=r+"-"+c;
-                div.onclick=()=>{window.selectedCell={r,c};};
-                grid.appendChild(div);
-            }
-        }
-    }
-
-    buildGrid();
-
-    window.refreshGrid=buildGrid;
-
-});
-
-// -------- SINGLE LINK LOAD --------
-
-async function loadFromLink(){
-    const url=document.getElementById("externalLink").value.trim();
-    if(!url||!window.selectedCell) return alert("Selecciona cuadro y link.");
-
-    const res=await fetch(url);
-    const buf=await res.arrayBuffer();
-
-    audioContext.decodeAudioData(buf,b=>{
-        if(window.selectedCell.c===0||window.selectedCell.c===COLS-1){
-            sideBuffers[window.selectedCell.r]=b;
-            sideLinks[window.selectedCell.r]=url;
-        }else{
-            centerBuffers[window.selectedCell.r]=b;
-            centerLinks[window.selectedCell.r]=url;
-        }
-        refreshGrid();
-    });
+function openModulePanel(){
+    document.getElementById('modulePanel').style.display='block';
 }
-
-// -------- MASS LOAD --------
-
-async function loadMassCenter(){
-    const raw=document.getElementById("massCenterLinks").value.trim();
-    const links=raw.split(/[\n,]+/).map(l=>l.trim()).filter(Boolean);
-
-    for(let i=0;i<links.length && i<ROWS;i++){
-        const res=await fetch(links[i]);
-        const buf=await res.arrayBuffer();
-        audioContext.decodeAudioData(buf,b=>{
-            centerBuffers[i]=b;
-            centerLinks[i]=links[i];
-            refreshGrid();
-        });
-    }
-}
-
-async function loadMassSides(){
-    const raw=document.getElementById("massSideLinks").value.trim();
-    const links=raw.split(/[\n,]+/).map(l=>l.trim()).filter(Boolean);
-
-    for(let i=0;i<links.length && i<ROWS;i++){
-        const res=await fetch(links[i]);
-        const buf=await res.arrayBuffer();
-        audioContext.decodeAudioData(buf,b=>{
-            sideBuffers[i]=b;
-            sideLinks[i]=links[i];
-            refreshGrid();
-        });
-    }
-}
-
-// -------- PRESET (LINKS ONLY) --------
-
-function savePreset(){
-    localStorage.setItem("bodybeat_links", JSON.stringify({centerLinks,sideLinks}));
-    alert("Preset guardado.");
-}
-
-async function loadPreset(){
-    const data=JSON.parse(localStorage.getItem("bodybeat_links"));
-    if(!data) return alert("No hay preset.");
-
-    centerLinks=data.centerLinks||{};
-    sideLinks=data.sideLinks||{};
-
-    for(let r in centerLinks){
-        const res=await fetch(centerLinks[r]);
-        const buf=await res.arrayBuffer();
-        audioContext.decodeAudioData(buf,b=>centerBuffers[r]=b);
-    }
-
-    for(let r in sideLinks){
-        const res=await fetch(sideLinks[r]);
-        const buf=await res.arrayBuffer();
-        audioContext.decodeAudioData(buf,b=>sideBuffers[r]=b);
-    }
-
-    refreshGrid();
-    alert("Preset cargado.");
-}
-
 
 
 
@@ -792,9 +709,23 @@ let proEngines = {};
 let activeLeftPro = [];
 let activeRightPro = [];
 
+
 function createProEngine(index){
 
-    const bpms=[128,124,122,126,138,170,140,132,118,92,85,105,110,90,100,130];
+    const styles=[
+        "Techno Industrial",
+        "Deep House",
+        "Trap Dark",
+        "Boom Bap",
+        "Drum & Bass",
+        "Reggaeton",
+        "Electro Rock",
+        "Ambient Pulse"
+    ];
+
+    const style = styles[index % styles.length];
+
+    const bpms=[132,124,140,92,170,96,110,100];
     const bpm = bpms[index % bpms.length];
 
     let step=0;
@@ -802,13 +733,13 @@ function createProEngine(index){
     const stepTime=(60/bpm)/4;
     let timer;
 
-    function kick(time){
+    function kick(time,power=1){
         let osc=audioContext.createOscillator();
         let gain=audioContext.createGain();
         osc.type="sine";
-        osc.frequency.setValueAtTime(150,time);
+        osc.frequency.setValueAtTime(180,time);
         osc.frequency.exponentialRampToValueAtTime(45,time+0.12);
-        gain.gain.setValueAtTime(1,time);
+        gain.gain.setValueAtTime(1.2*power,time);
         gain.gain.exponentialRampToValueAtTime(0.001,time+0.25);
         osc.connect(gain).connect(masterGain);
         osc.start(time);
@@ -823,21 +754,21 @@ function createProEngine(index){
         src.buffer=buffer;
         let band=audioContext.createBiquadFilter();
         band.type="bandpass";
-        band.frequency.value=1800;
+        band.frequency.value=2000;
         let gain=audioContext.createGain();
-        gain.gain.setValueAtTime(0.5,time);
+        gain.gain.setValueAtTime(0.6,time);
         gain.gain.exponentialRampToValueAtTime(0.001,time+0.2);
         src.connect(band).connect(gain).connect(masterGain);
         src.start(time);
         src.stop(time+0.2);
     }
 
-    function hat(time){
+    function hat(time,vol=0.2){
         let osc=audioContext.createOscillator();
         let gain=audioContext.createGain();
         osc.type="square";
-        osc.frequency.value=8000+Math.random()*800;
-        gain.gain.setValueAtTime(0.15,time);
+        osc.frequency.value=8000+Math.random()*1000;
+        gain.gain.setValueAtTime(vol,time);
         gain.gain.exponentialRampToValueAtTime(0.001,time+0.05);
         osc.connect(gain).connect(masterGain);
         osc.start(time);
@@ -846,9 +777,57 @@ function createProEngine(index){
 
     function schedule(){
         while(nextTime<audioContext.currentTime+0.1){
-            if(step%4===0) kick(nextTime);
-            if(step%4===2) snare(nextTime);
-            if(step%2===1) hat(nextTime);
+
+            switch(style){
+
+                case "Techno Industrial":
+                    if(step%4===0) kick(nextTime,1.1);
+                    if(step%8===4) snare(nextTime);
+                    hat(nextTime,0.15);
+                break;
+
+                case "Deep House":
+                    if(step%4===0) kick(nextTime,0.9);
+                    if(step%4===2) snare(nextTime);
+                    if(step%2===1) hat(nextTime,0.12);
+                break;
+
+                case "Trap Dark":
+                    if(step%4===0) kick(nextTime,1.2);
+                    if(step===6||step===14) snare(nextTime);
+                    if(step%2===1) hat(nextTime,0.08);
+                break;
+
+                case "Boom Bap":
+                    if(step%4===0) kick(nextTime,1);
+                    if(step===4||step===12) snare(nextTime);
+                    if(step%4===1) hat(nextTime,0.18);
+                break;
+
+                case "Drum & Bass":
+                    if(step%2===0) kick(nextTime,0.8);
+                    if(step%4===2) snare(nextTime);
+                    hat(nextTime,0.1);
+                break;
+
+                case "Reggaeton":
+                    if(step%4===0||step%4===2) kick(nextTime,1);
+                    if(step===6||step===14) snare(nextTime);
+                    if(step%2===1) hat(nextTime,0.12);
+                break;
+
+                case "Electro Rock":
+                    if(step%4===0) kick(nextTime,1.1);
+                    if(step%4===2) snare(nextTime);
+                    if(step%2===1) hat(nextTime,0.2);
+                break;
+
+                case "Ambient Pulse":
+                    if(step%8===0) kick(nextTime,0.4);
+                    if(step%4===2) hat(nextTime,0.05);
+                break;
+            }
+
             nextTime+=stepTime;
             step=(step+1)%16;
         }
@@ -864,6 +843,7 @@ function createProEngine(index){
         }
     };
 }
+
 
 // Safe override triggerCell (only laterals)
 const originalTriggerCellSafe = triggerCell;
@@ -929,42 +909,1162 @@ drawGrid = function(){
 };
 
 
+
+
+
+
+// ================= AUDIO MANAGER SYSTEM (FIXED CLEAN) =================
+
+let tempCellBuffers = {};
+let selectedManagerCell = null;
+
+function buildAudioManagerGrid(){
+    const grid = document.getElementById("audioManagerGrid");
+    if(!grid) return;
+    grid.innerHTML = "";
+
+    for(let r=0;r<ROWS;r++){
+        for(let c=0;c<COLS;c++){
+
+            let div=document.createElement("div");
+            div.className="assignCell "+(c===0||c===COLS-1?"sideCell":"centerCell");
+
+            const cellKey = r + "-" + c;
+
+            const hasTemp = tempCellBuffers[cellKey] !== undefined;
+
+            const hasFinal = (c===0||c===COLS-1)
+                ? (sideBuffers[r] !== undefined && (c===0||c===COLS-1))
+                : (centerBuffers[r] !== undefined);
+
+            if(hasTemp || hasFinal){
+                div.classList.add("loaded");
+            }
+
+            div.innerText=r+"-"+c;
+            div.onclick=()=>openSingleLoader(r,c);
+            grid.appendChild(div);
+        }
+    }
+}
+
+function openSingleLoader(r,c){
+
+    selectedManagerCell={r,c};
+
+    const useLocal = confirm("Aceptar = Archivo local\nCancelar = Cargar por link");
+
+    if(useLocal){
+
+        const input=document.getElementById("audioFileInput");
+        input.multiple=false;
+        input.value="";
+        input.onchange=function(e){
+            const file=e.target.files[0];
+            if(!file) return;
+
+            const reader=new FileReader();
+            reader.onload=ev=>{
+                audioContext.decodeAudioData(ev.target.result,b=>{
+                    tempCellBuffers[r+"-"+c] = b;
+                    buildAudioManagerGrid();
+                });
+            };
+            reader.readAsArrayBuffer(file);
+        };
+
+        input.click();
+
+    }else{
+
+        const url=prompt("Pega el link del audio:");
+        if(!url) return;
+
+        fetch(url)
+        .then(r=>r.arrayBuffer())
+        .then(buf=>{
+            audioContext.decodeAudioData(buf,b=>{
+                tempCellBuffers[r+"-"+c] = b;
+                buildAudioManagerGrid();
+            });
+        });
+    }
+}
+
+/* ===== SEQUENTIAL BATCH LOADER FIX ===== */
+
+let batchPointerCenter = 0;
+let batchPointerLeft = 0;
+let batchPointerRight = 0;
+
+function getNextCenterCell(){
+    while(batchPointerCenter < ROWS*(COLS-2)){
+        const r = Math.floor(batchPointerCenter / (COLS-2));
+        const c = 1 + (batchPointerCenter % (COLS-2));
+        batchPointerCenter++;
+        return {r,c};
+    }
+    return null;
+}
+
+function getNextSideCell(side){
+    if(side==="left"){
+        if(batchPointerLeft < ROWS){
+            return {r: batchPointerLeft++, c:0};
+        }
+    }
+    if(side==="right"){
+        if(batchPointerRight < ROWS){
+            return {r: batchPointerRight++, c:COLS-1};
+        }
+    }
+    return null;
+}
+
+function openMassLoader(type){
+
+    if(!audioContext){
+        audioContext = new (window.AudioContext||window.webkitAudioContext)();
+        masterGain = audioContext.createGain();
+        masterGain.connect(audioContext.destination);
+        masterGain.gain.value = 0.9;
+    }
+
+    const input=document.getElementById("audioFileInput");
+    input.multiple=true;
+    input.value="";
+
+    input.onchange=function(e){
+
+        const files=[...e.target.files];
+
+        files.forEach(file=>{
+
+            const reader=new FileReader();
+
+            reader.onload=function(ev){
+
+                audioContext.decodeAudioData(ev.target.result).then(buffer=>{
+
+                    let cell;
+
+                    if(type==="center"){
+                        cell = getNextCenterCell();
+                    }
+
+                    if(type==="left"){
+                        cell = getNextSideCell("left");
+                    }
+
+                    if(type==="right"){
+                        cell = getNextSideCell("right");
+                    }
+
+                    if(!cell) return;
+
+                    // ENGINE (by row)
+                    if(cell.c===0||cell.c===COLS-1){
+                        sideBuffers[cell.r]=buffer;
+                    }else{
+                        centerBuffers[cell.r]=buffer;
+                    }
+
+                    // VISUAL (by cell)
+                    visualLoadedCells[cell.r+"-"+cell.c]=true;
+
+                    rebuildAudioManagerVisual();
+                    buildAssign();
+
+                });
+
+            };
+
+            reader.readAsArrayBuffer(file);
+
+        });
+
+    };
+
+    input.click();
+}
+
+function saveAudioManager(){
+
+    
+    for(const key in tempCellBuffers){
+        const [r,c] = key.split("-").map(Number);
+        if(c===0||c===COLS-1){
+            sideBuffers[r] = tempCellBuffers[key];
+        }else{
+            centerBuffers[r] = tempCellBuffers[key];
+        }
+    }
+    tempCellBuffers = {};
+    
+
+    buildAssign();
+    buildAudioManagerGrid();
+    closePanel('audioManagerPanel');
+}
+
+document.addEventListener("DOMContentLoaded",()=>{
+    buildAudioManagerGrid();
+});
+
+
+
+
+/* ===== ISOLATED VISUAL AUDIO MANAGER FIX ===== */
+
+let visualLoadedCells = {};
+
+// Safe wrapper to rebuild only visual marks
+function rebuildAudioManagerVisual(){
+
+    const grid = document.getElementById("audioManagerGrid");
+    if(!grid) return;
+
+    const cells = grid.querySelectorAll(".assignCell");
+
+    cells.forEach(cell=>{
+        const key = cell.innerText.trim();
+        if(visualLoadedCells[key]){
+            cell.classList.add("loaded");
+        }
+    });
+}
+
+// Hook into existing openSingleLoader safely
+const __originalOpenSingleLoader = openSingleLoader;
+
+openSingleLoader = function(r,c){
+
+    if(!audioContext){
+        audioContext = new (window.AudioContext||window.webkitAudioContext)();
+        masterGain = audioContext.createGain();
+        masterGain.connect(audioContext.destination);
+        masterGain.gain.value = 0.9;
+    }
+
+    const input=document.getElementById("audioFileInput");
+    input.multiple=false;
+    input.value="";
+
+    input.onchange=function(e){
+
+        const file=e.target.files[0];
+        if(!file) return;
+
+        const reader=new FileReader();
+
+        reader.onload=function(ev){
+
+            audioContext.decodeAudioData(ev.target.result).then(buffer=>{
+
+                // Keep engine by row (original logic)
+                if(c===0||c===COLS-1){
+                    sideBuffers[r]=buffer;
+                }else{
+                    centerBuffers[r]=buffer;
+                }
+
+                // Mark ONLY visual cell
+                visualLoadedCells[r+"-"+c]=true;
+
+                rebuildAudioManagerVisual();
+                buildAssign();
+
+            });
+
+        };
+
+        reader.readAsArrayBuffer(file);
+    };
+
+    input.click();
+};
+
+
+
+
+/* ===== FINAL SAFE OVERRIDE: CENTER LIGHT ONLY ===== */
+
+const __finalOriginalTriggerCell = triggerCell;
+
+triggerCell = function(row,col){
+    // Block center from mouse (light detection does NOT use triggerCell)
+    if(col>0 && col<COLS-1){
+        return;
+    }
+    __finalOriginalTriggerCell(row,col);
+};
+
+
+
+
+/* ===== CENTER LIGHT GATED PLAYBACK ===== */
+
+
+/* ===== CENTER INSTRUMENT ENGINE ===== */
+
+let activeCenterSources = {};
+
+function playCenter(row){
+
+    // Stop previous if exists
+    if(activeCenterSources[row]){
+        try{ activeCenterSources[row].stop(); }catch(e){}
+        delete activeCenterSources[row];
+    }
+
+    let src;
+
+    // If user loaded audio → use it
+    if(centerBuffers[row]){
+        src = audioContext.createBufferSource();
+        src.buffer = centerBuffers[row];
+        src.loop = true;
+        src.connect(masterGain);
+        src.start();
+        activeCenterSources[row] = src;
+        return;
+    }
+
+    // Otherwise generate instrument by row
+    const instruments = [
+        "triangle","sawtooth","square","sine",
+        "triangle","sawtooth","square","sine"
+    ];
+
+    const baseFrequencies = [220,246,261,293,329,349,392,440];
+
+    let osc = audioContext.createOscillator();
+    let gain = audioContext.createGain();
+
+    osc.type = instruments[row % instruments.length];
+    osc.frequency.value = baseFrequencies[row % baseFrequencies.length];
+
+    gain.gain.value = 0.6;
+
+    osc.connect(gain).connect(masterGain);
+    osc.start();
+
+    activeCenterSources[row] = osc;
+}
+
+
+// Stop center sounds if no light detected
+const __originalDetectLight = detectLight;
+
+detectLight = function(){
+
+    analysisCtx.drawImage(video,0,0);
+    let img=analysisCtx.getImageData(0,0,analysisCanvas.width,analysisCanvas.height);
+    let data=img.data;
+
+    let global=0;
+    for(let i=0;i<data.length;i+=40){
+        global+=data[i]+data[i+1]+data[i+2];
+    }
+    global/= (data.length/40);
+
+    const cellW=analysisCanvas.width/COLS;
+    const cellH=analysisCanvas.height/ROWS;
+
+    let best=null;
+    let bestScore=0;
+
+    for(let r=0;r<ROWS;r++){
+        for(let c=1;c<COLS-1;c++){
+            let total=0,count=0;
+            for(let y=r*cellH;y<(r+1)*cellH;y+=6){
+                for(let x=c*cellW;x<(c+1)*cellW;x+=6){
+                    let idx=(Math.floor(y)*analysisCanvas.width+Math.floor(x))*4;
+                    total+=data[idx]+data[idx+1]+data[idx+2];
+                    count++;
+                }
+            }
+            let avg=total/count;
+            let contrast=avg-global;
+            if(contrast>bestScore){
+                bestScore=contrast;
+                best={row:r,col:c};
+            }
+        }
+    }
+
+    // If no strong light → stop all center sounds
+    if(!best || bestScore < sensitivity){
+        for(let r in activeCenterSources){
+            try{ activeCenterSources[r].stop(); }catch(e){}
+        }
+        activeCenterSources = {};
+        return;
+    }
+
+    let col = mirror ? (COLS-1-best.col) : best.col;
+    let row = best.row;
+
+    if(!activeCenterSources[row]){
+        playCenter(row);
+    }
+
+};
+
+
+
+
+/* ===== FIX: PREVENT AUTO PLAY DURING MASS LOAD ===== */
+
+let tempCenterBatch = {};
+let tempSideBatch = {};
+
+// Override mass loader so it does NOT touch engine buffers yet
+const __originalOpenMassLoader_v13 = openMassLoader;
+
+openMassLoader = function(type){
+
+    if(!audioContext){
+        audioContext = new (window.AudioContext||window.webkitAudioContext)();
+        masterGain = audioContext.createGain();
+        masterGain.connect(audioContext.destination);
+        masterGain.gain.value = 0.9;
+    }
+
+    const input=document.getElementById("audioFileInput");
+    input.multiple=true;
+    input.value="";
+
+    input.onchange=function(e){
+
+        const files=[...e.target.files];
+
+        files.forEach(file=>{
+
+            const reader=new FileReader();
+
+            reader.onload=function(ev){
+
+                audioContext.decodeAudioData(ev.target.result).then(buffer=>{
+
+                    let cell;
+
+                    if(type==="center"){
+                        cell = getNextCenterCell();
+                    }
+
+                    if(type==="left"){
+                        cell = getNextSideCell("left");
+                    }
+
+                    if(type==="right"){
+                        cell = getNextSideCell("right");
+                    }
+
+                    if(!cell) return;
+
+                    // STORE TEMP (NOT ENGINE YET)
+                    if(cell.c===0||cell.c===COLS-1){
+                        tempSideBatch[cell.r]=buffer;
+                    }else{
+                        tempCenterBatch[cell.r]=buffer;
+                    }
+
+                    visualLoadedCells[cell.r+"-"+cell.c]=true;
+                    rebuildAudioManagerVisual();
+
+                });
+
+            };
+
+            reader.readAsArrayBuffer(file);
+
+        });
+
+    };
+
+    input.click();
+};
+
+// Override save to commit buffers to engine
+const __originalSaveAudioManager_v13 = saveAudioManager;
+
+saveAudioManager = function(){
+
+    for(let r in tempCenterBatch){
+        centerBuffers[r]=tempCenterBatch[r];
+    }
+
+    for(let r in tempSideBatch){
+        sideBuffers[r]=tempSideBatch[r];
+    }
+
+    tempCenterBatch={};
+    tempSideBatch={};
+
+    buildAssign();
+    closePanel('audioManagerPanel');
+};
+
+
+
+/* ===== PULSING SOLID CENTER HIGHLIGHT ===== */
+
+let currentLightCell = null;
+
+// Override detectLight again to track exact active cell
+const __detectLightWithVisual = detectLight;
+
+detectLight = function(){
+
+    analysisCtx.drawImage(video,0,0);
+    let img=analysisCtx.getImageData(0,0,analysisCanvas.width,analysisCanvas.height);
+    let data=img.data;
+
+    let global=0;
+    for(let i=0;i<data.length;i+=40){
+        global+=data[i]+data[i+1]+data[i+2];
+    }
+    global/= (data.length/40);
+
+    const cellW=analysisCanvas.width/COLS;
+    const cellH=analysisCanvas.height/ROWS;
+
+    let best=null;
+    let bestScore=0;
+
+    for(let r=0;r<ROWS;r++){
+        for(let c=1;c<COLS-1;c++){
+            let total=0,count=0;
+            for(let y=r*cellH;y<(r+1)*cellH;y+=6){
+                for(let x=c*cellW;x<(c+1)*cellW;x+=6){
+                    let idx=(Math.floor(y)*analysisCanvas.width+Math.floor(x))*4;
+                    total+=data[idx]+data[idx+1]+data[idx+2];
+                    count++;
+                }
+            }
+            let avg=total/count;
+            let contrast=avg-global;
+            if(contrast>bestScore){
+                bestScore=contrast;
+                best={row:r,col:c};
+            }
+        }
+    }
+
+    if(!best || bestScore < sensitivity){
+        for(let r in activeCenterSources){
+            try{ activeCenterSources[r].stop(); }catch(e){}
+        }
+        activeCenterSources = {};
+        currentLightCell = null;
+        return;
+    }
+
+    let col = mirror ? (COLS-1-best.col) : best.col;
+    let row = best.row;
+
+    currentLightCell = {row: row, col: col};
+
+    if(!activeCenterSources[row]){
+        playCenter(row);
+    }
+};
+
+// Enhance drawGrid to add pulsing solid highlight
+const __drawGridWithPulse = drawGrid;
+
+drawGrid = function(){
+
+    __drawGridWithPulse();
+
+    if(!currentLightCell) return;
+
+    const w=canvas.width/COLS;
+    const h=canvas.height/ROWS;
+
+    const r=currentLightCell.row;
+    const c=currentLightCell.col;
+
+    const x=c*w;
+    const y=r*h;
+
+    // Pulsing brightness
+    const pulse = 0.5 + 0.5 * Math.sin(Date.now()/180);
+    const green = Math.floor(200 + 55*pulse);
+
+    ctx.fillStyle = "rgb(0," + green + ",255)";
+    ctx.fillRect(x,y,w,h);
+
+    ctx.strokeStyle="white";
+    ctx.lineWidth=3;
+    ctx.strokeRect(x,y,w,h);
+};
+
+
+/* ===== CLEAR AUDIO GRID FUNCTION ===== */
+
+function clearAudioGrid(){
+
+    // Stop all active center sounds
+    for(let r in activeCenterSources){
+        try{ activeCenterSources[r].stop(); }catch(e){}
+    }
+    activeCenterSources = {};
+
+    // Stop lateral engines
+    for(let key in proEngines){
+        try{ proEngines[key].stop(); }catch(e){}
+    }
+    proEngines = {};
+    activeLeftPro = [];
+    activeRightPro = [];
+
+    // Clear buffers
+    centerBuffers = {};
+    sideBuffers = {};
+    tempCenterBatch = {};
+    tempSideBatch = {};
+    tempCellBuffers = {};
+    visualLoadedCells = {};
+
+    buildAssign();
+    buildAudioManagerGrid();
+}
+
+
+/* ===============================
+   BODYBEAT CORE API (v1)
+   =============================== */
+
+window.BodyBeat = {
+
+    version: "1.0.0-core",
+    modules: {},
+    activeModules: {},
+
+    core: {
+        getAudioContext: () => audioContext,
+        getMasterGain: () => masterGain,
+        getCanvas: () => canvas,
+        getContext: () => ctx,
+        getGridSize: () => ({ rows: ROWS, cols: COLS })
+    },
+
+    registerModule(module){
+
+        if(!module.id){
+            console.warn("Module must have an id");
+            return;
+        }
+
+        if(this.modules[module.id]){
+            console.warn("Module already registered:", module.id);
+            return;
+        }
+
+        this.modules[module.id] = module;
+        console.log("Module registered:", module.id);
+    },
+
+    activateModule(id){
+
+        const module = this.modules[id];
+        if(!module) return;
+
+        if(this.activeModules[id]) return;
+
+        try{
+            module.init?.(this.core);
+            this.activeModules[id] = module;
+            module.active = true;
+            console.log("Module activated:", id);
+        }catch(e){
+            console.error("Module activation error:", id, e);
+        }
+    },
+
+    deactivateModule(id){
+
+        const module = this.activeModules[id];
+        if(!module) return;
+
+        try{
+            module.destroy?.();
+            delete this.activeModules[id];
+            module.active = false;
+            console.log("Module deactivated:", id);
+        }catch(e){
+            console.error("Module destroy error:", id, e);
+        }
+    },
+
+    updateModules(delta){
+
+        for(const id in this.activeModules){
+            try{
+                this.activeModules[id].update?.(delta);
+            }catch(e){
+                console.error("Module update error:", id, e);
+            }
+        }
+    }
+};
+
+
+/* ===============================
+   MODULE MANAGER (v1)
+   =============================== */
+
+function openModuleManager(){
+    document.getElementById("moduleManagerPanel").style.display = "block";
+    renderModuleList();
+}
+
+function renderModuleList(){
+
+    const container = document.getElementById("moduleList");
+    container.innerHTML = "";
+
+    for(const id in BodyBeat.modules){
+
+        const module = BodyBeat.modules[id];
+
+        const row = document.createElement("div");
+        row.style.marginBottom = "8px";
+
+        const label = document.createElement("span");
+        label.innerText = module.name || id;
+
+        const btn = document.createElement("button");
+        btn.style.marginLeft = "10px";
+
+        if(BodyBeat.activeModules[id]){
+            btn.innerText = "Desactivar";
+            btn.onclick = () => {
+                BodyBeat.deactivateModule(id);
+                renderModuleList();
+            };
+        }else{
+            btn.innerText = "Activar";
+            btn.onclick = () => {
+                BodyBeat.activateModule(id);
+                renderModuleList();
+            };
+        }
+
+        row.appendChild(label);
+        row.appendChild(btn);
+        container.appendChild(row);
+    }
+}
+
+/* ---- Cargar módulo externo ---- */
+
+document.addEventListener("DOMContentLoaded",()=>{
+
+    const input = document.getElementById("moduleFileInput");
+
+    input.addEventListener("change", function(){
+
+        const file = this.files[0];
+        if(!file) return;
+
+        const script = document.createElement("script");
+        script.src = URL.createObjectURL(file);
+
+        script.onload = () => { script.dataset.moduleId = Object.keys(BodyBeat.modules).slice(-1)[0];
+            console.log("External module loaded");
+            renderModuleList();
+        };
+
+        document.body.appendChild(script);
+    });
+
+});
+
+/* ---- Guardar estado ---- */
+
+function saveModuleState(){
+
+    const activeIds = Object.keys(BodyBeat.activeModules);
+    localStorage.setItem("bb_active_modules", JSON.stringify(activeIds));
+
+    alert("Configuración guardada");
+}
+
+/* ---- Restaurar estado ---- */
+
+window.addEventListener("DOMContentLoaded",()=>{
+
+    const saved = localStorage.getItem("bb_active_modules");
+    if(!saved) return;
+
+    const ids = JSON.parse(saved);
+
+    ids.forEach(id=>{
+        if(BodyBeat.modules[id]){
+            BodyBeat.activateModule(id);
+        }
+    });
+});
+
+
+/* ===== SAFE MODULE PANEL SUPPORT v2.1 ===== */
+
+function openModulePanelFor(id){
+
+    const module = BodyBeat.modules[id];
+    if(!module) return;
+
+    if(module.hasPanel && typeof module.renderPanel === "function"){
+        module.renderPanel();
+    }else{
+        alert("Este módulo no tiene panel configurable.");
+    }
+}
+
+
+/* ===== SAFE OVERRIDE: renderModuleList buttons only ===== */
+
+const __originalRenderModuleList = renderModuleList;
+
+renderModuleList = function(){
+
+    const container = document.getElementById("moduleList");
+    container.innerHTML = "";
+
+    for(const id in BodyBeat.modules){
+
+        const module = BodyBeat.modules[id];
+
+        const btn = document.createElement("button");
+        btn.className = "menuButton";
+        btn.style.marginBottom = "8px";
+        btn.innerText = module.name || id;
+
+        btn.onclick = () => openModulePanelFor(id);
+
+        container.appendChild(btn);
+    }
+};
+
+
+/* ===============================
+   BODYBEAT VISUAL HOOK SYSTEM
+   =============================== */
+
+if(!window.BodyBeat.hooks){
+    BodyBeat.hooks = {
+        afterDraw: []
+    };
+
+    BodyBeat.onAfterDraw = function(fn){
+        if(typeof fn === "function"){
+            this.hooks.afterDraw.push(fn);
+        }
+    };
+
+    BodyBeat.clearAfterDrawHooks = function(){
+        this.hooks.afterDraw = [];
+    };
+}
+
+
+/* ===============================
+   MODULE DELETE SYSTEM
+   =============================== */
+
+function openDeleteModulesPanel(){
+
+    document.getElementById("deleteModulesPanel").style.display = "block";
+    const container = document.getElementById("deleteModulesList");
+    container.innerHTML = "";
+
+    for(const id in BodyBeat.modules){
+
+        const row = document.createElement("div");
+
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.value = id;
+        checkbox.className = "deleteModuleCheckbox";
+
+        const label = document.createElement("label");
+        label.innerText = " " + (BodyBeat.modules[id].name || id);
+
+        row.appendChild(checkbox);
+        row.appendChild(label);
+
+        container.appendChild(row);
+    }
+}
+
+function confirmDeleteModules(){
+
+    const checkboxes = document.querySelectorAll(".deleteModuleCheckbox:checked");
+
+    checkboxes.forEach(cb=>{
+
+        const id = cb.value;
+
+        // Deactivate if active
+        if(BodyBeat.activeModules[id]){
+            BodyBeat.deactivateModule(id);
+        }
+
+        // Remove module
+        removeModuleScript(id);
+        delete BodyBeat.modules[id];
+
+        // Remove possible localStorage config
+        localStorage.removeItem("bb_" + id + "_config");
+
+    });
+
+    closePanel("deleteModulesPanel");
+    renderModuleList();
+}
+
+
+/* ===== GRID VISIBILITY CONTROL ===== */
+let gridVisible = true;
+
+function toggleGridVisibility(){
+    gridVisible = !gridVisible;
+}
+
+
+/* ===============================
+   BODYBEAT AUDIO BUS SYSTEM
+   =============================== */
+
+if(window.BodyBeat && !BodyBeat.audioBusInitialized){
+
+    BodyBeat.audioBusInitialized = true;
+
+    const originalGetMaster = BodyBeat.core.getMasterGain;
+    const originalGetAudio = BodyBeat.core.getAudioContext;
+
+    BodyBeat.fxBus = null;
+
+    BodyBeat.core.getFxBus = function(){
+        return BodyBeat.fxBus;
+    };
+
+    // Initialize bus once AudioContext exists
+    const checkBus = setInterval(()=>{
+
+        const ctx = originalGetAudio();
+        const master = originalGetMaster();
+
+        if(ctx && master && !BodyBeat.fxBus){
+
+            BodyBeat.fxBus = ctx.createGain();
+
+            master.disconnect();
+            master.connect(BodyBeat.fxBus);
+            BodyBeat.fxBus.connect(ctx.destination);
+
+            clearInterval(checkBus);
+            console.log("FX Bus initialized");
+        }
+
+    }, 300);
+
+}
+
+
+/* ===== IMPROVED MODULE DELETE CLEANUP ===== */
+
+function removeModuleScript(id){
+    document.querySelectorAll("script").forEach(s=>{
+        if(s.dataset && s.dataset.moduleId === id){
+            s.remove();
+        }
+    });
+}
+
+
+/* ===============================
+   BODYBEAT AUDIO ARCHITECTURE v3
+   (Center / Lateral / MasterMix / FXBus)
+   =============================== */
+
+if(window.BodyBeat && !BodyBeat.audioV3Initialized){
+
+    BodyBeat.audioV3Initialized = true;
+
+    const getCtx = BodyBeat.core.getAudioContext;
+
+    const waitForAudio = setInterval(()=>{
+
+        const ctx = getCtx();
+        if(!ctx) return;
+
+        clearInterval(waitForAudio);
+
+        // Create buses
+        BodyBeat.centerBus = ctx.createGain();
+        BodyBeat.lateralBus = ctx.createGain();
+        BodyBeat.masterMix = ctx.createGain();
+        BodyBeat.fxBus = ctx.createGain();
+
+        // Routing
+        BodyBeat.centerBus.connect(BodyBeat.masterMix);
+        BodyBeat.lateralBus.connect(BodyBeat.masterMix);
+
+        BodyBeat.masterMix.connect(BodyBeat.fxBus);
+        BodyBeat.fxBus.connect(ctx.destination);
+
+        // Expose in API
+        BodyBeat.core.getCenterBus = () => BodyBeat.centerBus;
+        BodyBeat.core.getLateralBus = () => BodyBeat.lateralBus;
+        BodyBeat.core.getMasterMix = () => BodyBeat.masterMix;
+        BodyBeat.core.getFxBus = () => BodyBeat.fxBus;
+
+        console.log("Audio Architecture v3 initialized");
+
+    }, 300);
+
+}
+
+
+/* ===============================
+   BODYBEAT AUDIO ARCHITECTURE v3.1
+   (Master Migration Fix)
+   =============================== */
+
+/*
+ NOTE:
+ Full separation of center/lateral requires
+ refactoring internal source routing.
+ Until that refactor is done, we unify routing
+ through original masterGain to ensure
+ analyzer and FX receive signal correctly.
+*/
+
+if(window.BodyBeat && !BodyBeat.audioV31Fix){
+
+    BodyBeat.audioV31Fix = true;
+
+    const ctx = BodyBeat.core.getAudioContext();
+    const master = BodyBeat.core.getMasterGain();
+
+    if(ctx && master){
+
+        // Ensure FX Bus exists
+        if(!BodyBeat.fxBus){
+            BodyBeat.fxBus = ctx.createGain();
+            master.disconnect();
+            master.connect(BodyBeat.fxBus);
+            BodyBeat.fxBus.connect(ctx.destination);
+        }
+
+        // Alias buses to master until full refactor
+        BodyBeat.core.getCenterBus = () => master;
+        BodyBeat.core.getLateralBus = () => master;
+        BodyBeat.core.getMasterMix = () => master;
+        BodyBeat.core.getFxBus = () => BodyBeat.fxBus;
+
+        console.log("Audio Architecture v3.1 unified routing active");
+    }
+}
+
 </script>
 
-<div id="unifiedPanel" class="subPanel">
-<div class="closeBtn" onclick="closePanel('unifiedPanel')">✕</div>
-<h3>Gestión de Sonidos</h3>
 
-<div class="assignGrid" id="unifiedGrid"></div>
+<div id="audioManagerPanel" class="subPanel">
+<div class="closeBtn" onclick="closePanel('audioManagerPanel')">✕</div>
+<h3>Carga y gestión de archivos de audio</h3>
 
-<hr>
-
-<h4>Cargar por Link (individual)</h4>
-<input type="text" id="externalLink" placeholder="https://..." style="width:100%;margin-bottom:5px;">
-<button onclick="loadFromLink()">Cargar en cuadro seleccionado</button>
+<div class="assignGrid" id="audioManagerGrid"></div>
 
 <hr>
 
-<h4>Carga Masiva por Link</h4>
-<label>Centro</label>
-<textarea id="massCenterLinks" style="width:100%;height:60px;"></textarea>
-<button onclick="loadMassCenter()">Cargar Centro</button>
-
-<label>Laterales</label>
-<textarea id="massSideLinks" style="width:100%;height:60px;"></textarea>
-<button onclick="loadMassSides()">Cargar Laterales</button>
-
-<hr>
-
-<h4>Preset (solo links)</h4>
-<button onclick="savePreset()">Guardar Preset</button>
-<button onclick="loadPreset()">Cargar Preset</button>
+<h4>Carga Masiva</h4>
+<button onclick="openMassLoader('center')">Carga Centro</button>
+<button onclick="openMassLoader('left')">Carga Lateral Izquierdo</button>
+<button onclick="openMassLoader('right')">Carga Lateral Derecho</button>
 
 <br><br>
-<button onclick="closePanel('unifiedPanel')">Guardar y Cerrar</button>
+<button onclick="saveAudioManager()">Guardar Cambios</button>
+<button onclick="clearAudioGrid()">Limpiar Grilla</button>
+<button onclick="closePanel('audioManagerPanel')">Cerrar</button>
 
-<input type="file" id="fileSingle" accept="audio/*" hidden>
+<input type="file" id="audioFileInput" accept="audio/*" hidden>
 </div>
+
+
+<div id="modulePanel" class="subPanel">
+<div class="closeBtn" onclick="closePanel('modulePanel')">✕</div>
+<h3>Conector Modular</h3>
+
+<hr>
+<h4>🎧 Módulos de Audio</h4>
+<label><input type="checkbox"> Sidechain</label><br>
+
+<hr>
+<h4>🎛 Módulos de Efectos</h4>
+<label><input type="checkbox"> Reverb</label><br>
+<label><input type="checkbox"> Delay BPM</label><br>
+<label><input type="checkbox"> Filtro Global</label><br>
+
+<hr>
+<h4>🌈 Módulos Visuales</h4>
+<label><input type="checkbox"> Glow externo</label><br>
+<label><input type="checkbox"> Neón real</label><br>
+<label><input type="checkbox"> Partículas</label><br>
+<label><input type="checkbox"> Modo Estrobo</label><br><br>
+
+<button onclick="closePanel('modulePanel')">Guardar Cambios</button>
+</div>
+
+
+<div id="moduleManagerPanel" class="subPanel">
+<div class="closeBtn" onclick="closePanel('moduleManagerPanel')">✕</div>
+<h3>Module Manager</h3>
+
+<div id="moduleList"></div>
+
+<hr>
+<h4>Agregar módulo externo</h4>
+<input type="file" id="moduleFileInput" accept=".js"><br><br>
+
+<button onclick="saveModuleState()">Guardar Configuración</button>
+<br><br>
+<button onclick="openDeleteModulesPanel()">Eliminar Módulos</button>
+
+</div>
+
+
+<div id="deleteModulesPanel" class="subPanel" style="display:none;">
+<div class="closeBtn" onclick="closePanel('deleteModulesPanel')">✕</div>
+<h3>Eliminar Módulos</h3>
+<div id="deleteModulesList"></div>
+<br>
+<button onclick="confirmDeleteModules()">Guardar Cambios</button>
+</div>
+
+
+<button id="gridToggleBtn" style="
+position:fixed;
+bottom:90px;
+left:50%;
+transform:translateX(-50%);
+background:#102a55;
+border:2px solid #00ffff;
+padding:10px 20px;
+border-radius:25px;
+color:white;
+cursor:pointer;
+z-index:250;
+box-shadow:0 0 10px #00ffff;
+">Mostrar / Ocultar Grilla</button>
+
+<script>
+document.getElementById("gridToggleBtn").onclick = toggleGridVisibility;
+</script>
 
 </body>
 </html>
