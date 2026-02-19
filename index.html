@@ -2066,5 +2066,43 @@ box-shadow:0 0 10px #00ffff;
 document.getElementById("gridToggleBtn").onclick = toggleGridVisibility;
 </script>
 
+
+<!-- ===============================
+     PRELOADED MODULES AUTO LOADER
+     =============================== -->
+
+<script>
+document.addEventListener("DOMContentLoaded", function(){
+
+    const PRELOADED_MODULES = [
+        "assets/modules/rhythm_game_v3_1_toggle.js",
+        "assets/modules/audio_fx_pro_v3.module.js",
+        "assets/modules/audio_analyzer_pro_v4.module.js",
+        "assets/modules/glow_visual_pro_v3.module.js"
+    ];
+
+    PRELOADED_MODULES.forEach(src => {
+
+        const script = document.createElement("script");
+        script.src = src;
+        script.defer = true;
+
+        script.onload = () => {
+            console.log("Preloaded module:", src);
+            if(typeof renderModuleList === "function"){
+                renderModuleList();
+            }
+        };
+
+        script.onerror = () => {
+            console.warn("Failed to load module:", src);
+        };
+
+        document.body.appendChild(script);
+    });
+
+});
+</script>
+
 </body>
 </html>
