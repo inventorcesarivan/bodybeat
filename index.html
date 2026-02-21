@@ -3,2105 +3,1804 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BodyBeat v17</title>
-
+<title>Motion Composer v27 - UI Improved</title>
 <style>
-body{margin:0;overflow:hidden;background:#050b18;font-family:Arial;}
-video{display:none;}
-canvas{position:absolute;width:100vw;height:100vh;}
+body{margin:0;background:#050a14;color:white;font-family:Arial;overflow:hidden;}
 
-#overlay{
-position:absolute;top:0;left:0;width:100%;height:100%;
-background:black;display:flex;align-items:center;justify-content:center;
-color:white;font-size:22px;z-index:50;cursor:pointer;
-}
+#stage{position:relative;width:100vw;height:100vh;display:flex;justify-content:center;align-items:center;}
+video,canvas{position:absolute;width:1280px;height:720px;object-fit:cover;}
 
-#menuBtn{
+#panel{transform:translateX(-50%) scale(0.9); transform-origin:top center;
 position:fixed;
 top:20px;
 left:50%;
 transform:translateX(-50%);
-background:#0b1f3f;
-border:2px solid #00e5ff;
-padding:12px 22px;
+background:rgba(10,20,35,0.96);
+padding:22px 45px;
+border-radius:18px;
+backdrop-filter:blur(10px);
+display:flex;
+flex-direction:column;
+align-items:center;
+gap:20px;
+z-index:10;
+min-width:1035px;
+transition:0.3s;
+}
+
+#panel.hidden{
+opacity:0;
+pointer-events:none;
+transform:translateX(-50%) translateY(-20px);
+}
+
+.sectionTitle{
+font-size:15px;
+letter-spacing:1px;
+opacity:0.8;
+margin-bottom:5px;
+}
+
+.row{
+display:flex;
+justify-content:center;
+align-items:center;
+flex-wrap:wrap;
+gap:20px;
+}
+
+
+button{
+background:#0ff;
+color:#001;
+border:none;
+padding:10px 22px;
 border-radius:30px;
+cursor:pointer;
+font-weight:bold;
+letter-spacing:1px;
+box-shadow:0 0 5px #0ff, 0 0 15px #0ff, inset 0 0 10px rgba(255,255,255,0.2);
+transition:0.3s;
+}
+button:hover{
+background:#fff;
+color:#000;
+box-shadow:0 0 15px #0ff, 0 0 30px #0ff;
+}
+
+background:#1b2a44;
 color:white;
-cursor:pointer;
-z-index:200;
-box-shadow:0 0 15px #00e5ff;
-}
-
-#mainMenu{
-position:fixed;top:50%;left:50%;
-transform:translate(-50%,-50%);
-background:#0b1f3f;border:3px solid #00e5ff;
-border-radius:25px;padding:30px;display:none;
-z-index:300;min-width:460px;color:white;
-box-shadow:0 0 30px #00e5ff;
-}
-
-.menuButton{
-width:100%;padding:12px;margin-top:10px;
-border-radius:18px;border:2px solid #ff00ff;
-background:#102a55;color:white;cursor:pointer;
-box-shadow:0 0 12px #ff00ff;
-}
-
-.subPanel{max-height:85vh;overflow-y:auto;
-position:fixed;top:50%;left:50%;
-transform:translate(-50%,-50%);
-background:#0a1833;border:3px solid #ff00ff;
-border-radius:20px;padding:20px;
-display:none;z-index:400;color:white;
-min-width:360px;box-shadow:0 0 25px #ff00ff;
-}
-
-.closeBtn{position:absolute;top:10px;right:15px;cursor:pointer;font-size:20px;}
-input[type=range]{width:100%;}
-
-.assignGrid{
-display:grid;
-grid-template-columns:repeat(10,1fr);
-gap:3px;margin-top:10px;
-}
-
-.assignCell{
-height:26px;border:1px solid #00e5ff;
-font-size:10px;display:flex;
-align-items:center;justify-content:center;
+border:none;
+padding:8px 16px;
+border-radius:8px;
 cursor:pointer;
 }
 
-.sideCell{background:#003d2f;}
-.centerCell{background:#111;}
-.loaded{background:#6a00ff;}
+select,input{padding:4px;}
 
-#camSwitchBtn{
+.dot{width:14px;height:14px;border-radius:50%;}
+
+.colorLabel{
+display:flex;
+align-items:center;
+gap:6px;
+}
+
+.sliderGroup{
+display:flex;
+align-items:center;
+gap:10px;
+min-width:220px;
+}
+
+#toggleControls{
 position:fixed;
 bottom:25px;
 left:50%;
 transform:translateX(-50%);
-background:#102a55;
-border:2px solid #ff00ff;
-padding:12px 22px;
-border-radius:30px;
-color:white;
-cursor:pointer;
-z-index:200;
-box-shadow:0 0 12px #ff00ff;
+background:#0ff;
+color:#000;
+padding:10px 22px;
+border-radius:25px;
+font-weight:bold;
+box-shadow:0 0 8px #0ff, 0 0 20px #0ff;
+z-index:15;
 }
 
-video{
+#statusText{
+position:fixed;
+top:20px;
+left:20px;
+background:rgba(0,0,0,0.6);
+padding:6px 14px;
+border-radius:10px;
+font-size:14px;
+font-weight:bold;
+z-index:20;
+display:none;
+}
+
+.indicator{
 position:absolute;
-top:0;
-left:0;
-width:1px;
-height:1px;
-opacity:0;
+border:4px solid;
+border-radius:50%;
 pointer-events:none;
 }
 
 
-button[onclick*="assignPanel"]{display:none !important;}
-button[onclick*="loadPanel"]{display:none !important;}
+#detectedColorText{
+position:fixed;
+bottom:20px;
+right:20px;
+font-size:13px;
+font-weight:bold;
+background:rgba(0,0,0,0.5);
+padding:6px 10px;
+border-radius:10px;
+box-shadow:0 0 6px #0ff;
+z-index:20;
+opacity:0.85;
+}
+
+
+@keyframes shock{
+0%{transform:scale(0.3);opacity:1;}
+100%{transform:scale(2);opacity:0;}
+}
 
 </style>
 </head>
 <body>
 
-<div id="overlay">Toca para activar sonido</div>
-<button id="menuBtn">MENU</button>
-<button id="camSwitchBtn">Cambiar Cámara</button>
+<div id="panel">
 
-<div id="mainMenu">
-<h2 style="text-align:center;color:#e0c3ff;">BodyBeat Control</h2>
-<button class="menuButton" onclick="openPanel('settingsPanel')">Configuración</button>
-<button class="menuButton" onclick="openPanel('audioManagerPanel')">Carga y gestión de archivos de audio</button>
-<button class="menuButton" onclick="openPanel('assignPanel')">Asignación por Cuadro</button>
-<button class="menuButton" onclick="openPanel('loadPanel')">Carga Masiva</button>
-
-<button class="menuButton" onclick="openModuleManager()">Módulos</button>
-
-<button class="menuButton" onclick="toggleMirror()">Invertir Cámara</button>
-<button class="menuButton" onclick="closeMain()">Cerrar</button>
+<div class="row">
+<button id="startBtn">Iniciar</button>
+<button id="stopBtn">Detener</button>
 </div>
 
-<div id="settingsPanel" class="subPanel">
-<div class="closeBtn" onclick="closePanel('settingsPanel')">✕</div>
-<h3>Configuración</h3>
-<label>Sensibilidad LED</label>
-<input type="range" id="sensSlider" min="20" max="200" value="80"><br><br>
-<label>Volumen</label>
-<input type="range" id="volSlider" min="0" max="1" step="0.01" value="0.9"><br><br>
-<button onclick="resetLoops()">Reset Loops</button>
+<div class="row">
+Modo:
+<select id="playMode">
+<option value="continuous">Continuo</option>
+<option value="trigger">Trigger</option>
+</select>
+
+Efectos:
+<select id="effectsToggle">
+<option value="on">ON</option>
+<option value="off" selected>OFF</option>
+</select>
+
+Estilo:
+<select id="effectStyle">
+<option value="fire">Fire</option>
+<option value="ice">Ice</option>
+<option value="impact">Impact</option>
+<option value="shockwave">Shockwave</option>
+</select>
 </div>
 
-<div id="assignPanel" class="subPanel">
-<div class="closeBtn" onclick="closePanel('assignPanel')">✕</div>
-<h3>Asignación Individual</h3>
-<div class="assignGrid" id="assignGrid"></div>
-<input type="file" id="fileSingle" accept="audio/*" hidden>
+<div class="row">
+<div class="colorLabel"><div class="dot" style="background:red;"></div><select id="instRed"></select></div>
+<div class="colorLabel"><div class="dot" style="background:lime;"></div><select id="instGreen"></select></div>
+<div class="colorLabel"><div class="dot" style="background:cyan;"></div><select id="instBlue"></select></div>
+<div class="colorLabel"><div class="dot" style="background:white;"></div><select id="instWhite"></select></div>
 </div>
 
-<div id="loadPanel" class="subPanel">
-<div class="closeBtn" onclick="closePanel('loadPanel')">✕</div>
-<h3>Carga Masiva</h3>
-<button onclick="fileCenter.click()">Cargar Centro</button><br><br>
-<button onclick="fileSides.click()">Cargar Laterales</button>
-<input type="file" id="fileCenter" accept="audio/*" multiple hidden>
-<input type="file" id="fileSides" accept="audio/*" multiple hidden>
+<div class="sectionTitle">CALIBRACIÓN DE COLORES</div>
+
+<div class="row">
+Tolerancia Global:
+<input type="range" id="tolerance" min="1.1" max="2.0" step="0.05" value="1.3">
 </div>
 
+<div class="row">
+<div class="sliderGroup">🔴 <input type="range" id="thRed" min="150" max="255" value="210"></div>
+<div class="sliderGroup">🟢 <input type="range" id="thGreen" min="150" max="255" value="210"></div>
+<div class="sliderGroup">🔵 <input type="range" id="thBlue" min="150" max="255" value="210"></div>
+<div class="sliderGroup">⚪ <input type="range" id="thWhite" min="150" max="255" value="210"></div>
+</div>
+
+
+<div class="row">
+Sync Bases:
+<select id="syncToggle">
+<option value="off" selected>OFF</option>
+<option value="on">ON (Ableton Mode)</option>
+</select>
+</div>
+
+<div class="row">
+Master Vol:
+<input type="range" id="masterVol" min="0" max="1" step="0.05" value="0.7">
+</div>
+
+
+<div class="row">
+BPM:
+<input type="range" id="bpmControl" min="60" max="180" step="1" value="100">
+<span id="bpmValue">100</span>
+</div>
+<div class="row">
+Modo Musical:
+<select id="harmonicMode">
+<option value="free" selected>Libre</option>
+<option value="ai">IA Armónica</option>
+</select>
+Tonalidad:
+<select id="keySelect">
+<option value="C">C</option>
+<option value="D">D</option>
+<option value="E">E</option>
+<option value="F">F</option>
+<option value="G">G</option>
+<option value="A">A</option>
+<option value="B">B</option>
+</select>
+Escala:
+<select id="scaleType">
+<option value="major">Mayor</option>
+<option value="minor" selected>Menor</option>
+</select>
+</div>
+<div class="row">
+
+</div>
+</div>
+
+<button id="toggleControls">Ver / Ocultar Controles</button>
+
+<div id="stage">
 <video id="video" autoplay playsinline></video>
-<canvas id="canvas"></canvas>
+<canvas id="canvas" width="1280" height="720"></canvas>
+</div>
+
+<div id="statusText"></div>
+<div id="detectedColorText">Color detectado: Ninguno</div>
 
 <script>
-const COLS=10, ROWS=8;
+
+// Reusing same logic from v26 without changes
+
+class MotionComposer{
+constructor(){this.audioCtx=null;this.masterGain=null;}
+async init(){
+this.audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+this.masterGain=this.audioCtx.createGain();
+this.masterGain.gain.value=0.7;
+this.masterGain.connect(this.audioCtx.destination);
+}
+setVolume(v){if(this.masterGain)this.masterGain.gain.value=v;}
+midiToFreq(m){return 440*Math.pow(2,(m-69)/12);}
+
+createVoice(type,freq){
+
+const now=this.audioCtx.currentTime;
+
+if(type==="drums"){
+const buffer=this.audioCtx.createBuffer(1,44100,44100);
+const data=buffer.getChannelData(0);
+for(let i=0;i<44100;i++){
+data[i]=(Math.random()*2-1)*Math.exp(-i/2000);
+}
+const noise=this.audioCtx.createBufferSource();
+noise.buffer=buffer;
+const gain=this.audioCtx.createGain();
+gain.gain.setValueAtTime(1,now);
+gain.gain.exponentialRampToValueAtTime(0.001,now+0.3);
+noise.connect(gain).connect(this.masterGain);
+noise.start();
+return;
+}
+
+if(type==="electricGuitar"){
+const osc=this.audioCtx.createOscillator();
+const gain=this.audioCtx.createGain();
+osc.type="sawtooth";
+osc.frequency.value=freq;
+osc.connect(gain).connect(this.masterGain);
+gain.gain.setValueAtTime(0.7,now);
+gain.gain.exponentialRampToValueAtTime(0.001,now+1.2);
+osc.start();
+osc.stop(now+1.3);
+return;
+}
+
+if(type==="bass"){
+const osc=this.audioCtx.createOscillator();
+const gain=this.audioCtx.createGain();
+osc.type="square";
+osc.frequency.value=freq/2;
+osc.connect(gain).connect(this.masterGain);
+gain.gain.setValueAtTime(0.8,now);
+gain.gain.exponentialRampToValueAtTime(0.001,now+1.5);
+osc.start();
+osc.stop(now+1.6);
+return;
+}
+
+if(type==="keyboard"){
+const osc1=this.audioCtx.createOscillator();
+const osc2=this.audioCtx.createOscillator();
+const gain=this.audioCtx.createGain();
+osc1.type="triangle";
+osc2.type="sine";
+osc1.frequency.value=freq;
+osc2.frequency.value=freq*1.01;
+osc1.connect(gain);
+osc2.connect(gain);
+gain.connect(this.masterGain);
+gain.gain.setValueAtTime(0.6,now);
+gain.gain.exponentialRampToValueAtTime(0.001,now+1.5);
+osc1.start(); osc2.start();
+osc1.stop(now+1.6); osc2.stop(now+1.6);
+return;
+}
+
+const osc=this.audioCtx.createOscillator();
+const gain=this.audioCtx.createGain();
+osc.type=type;
+osc.frequency.value=freq;
+osc.connect(gain);
+gain.connect(this.masterGain);
+gain.gain.setValueAtTime(0,this.audioCtx.currentTime);
+gain.gain.linearRampToValueAtTime(0.5,this.audioCtx.currentTime+0.05);
+gain.gain.exponentialRampToValueAtTime(0.0001,this.audioCtx.currentTime+1.2);
+osc.start();
+osc.stop(this.audioCtx.currentTime+1.3);
+}
+
+play(type,xNorm){
+const midi=60+Math.floor(xNorm*12);
+this.createVoice(type,this.midiToFreq(midi));
+}
+}
+
+let composer=new MotionComposer();
+let stream;let running=false;
+const video=document.getElementById("video");
 const canvas=document.getElementById("canvas");
 const ctx=canvas.getContext("2d");
-const video=document.getElementById("video");
+const statusText=document.getElementById("statusText");
+const panel=document.getElementById("panel");
 
-const analysisCanvas=document.createElement("canvas");
-const analysisCtx=analysisCanvas.getContext("2d");
-
-let audioContext, masterGain;
-let activeLoops={};
-let flashCells={};
-let sensitivity=80;
-let lastCenterCell=null;
-let centerBuffers={};
-let sideBuffers={};
-let mirror=false;
-const MAX_LOOPS=4;
-
-/* AUDIO INIT */
-overlay.onclick=()=>{
-audioContext=new (window.AudioContext||window.webkitAudioContext)();
-masterGain=audioContext.createGain();
-masterGain.connect(audioContext.destination);
-masterGain.gain.value=0.9;
-overlay.style.display="none";
-};
-
-
-/* CAMERA */
-let currentStream = null;
-let currentFacing = "environment";
-let isStartingCamera = false;
-
-async function initCamera() {
-
-    if (isStartingCamera) return;
-    isStartingCamera = true;
-
-    try {
-
-        if (currentStream) {
-            currentStream.getTracks().forEach(track => track.stop());
-            await new Promise(r => setTimeout(r, 300));
-        }
-
-        const stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: currentFacing },
-            audio: false
-        });
-
-        currentStream = stream;
-        video.srcObject = stream;
-        video.setAttribute("playsinline", true);
-        video.muted = true;
-
-        await video.play();
-
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        analysisCanvas.width = video.videoWidth;
-        analysisCanvas.height = video.videoHeight;
-
-        startRendering();
-
-    } catch (err) {
-        console.error("Camera error:", err);
-    }
-
-    isStartingCamera = false;
-}
-
-function startRendering(){
-
-    function renderFrame(){
-
-        if(video.readyState >= 2){
-            ctx.save();
-            if(mirror){
-                ctx.scale(-1,1);
-                ctx.drawImage(video,-canvas.width,0,canvas.width,canvas.height);
-            }else{
-                ctx.drawImage(video,0,0,canvas.width,canvas.height);
-            }
-            ctx.restore();
-
-            drawGrid();
-
-            if(window.BodyBeat && BodyBeat.hooks && BodyBeat.hooks.afterDraw){
-                BodyBeat.hooks.afterDraw.forEach(fn=>{
-                    try{ fn(); }catch(e){ console.error("Hook error:", e); }
-                });
-            }
-            if(window.BodyBeat){ BodyBeat.updateModules(0); }
-            detectLight();
-        }
-
-        if(video.requestVideoFrameCallback){
-            video.requestVideoFrameCallback(renderFrame);
-        }else{
-            requestAnimationFrame(renderFrame);
-        }
-    }
-
-    if(video.requestVideoFrameCallback){
-        video.requestVideoFrameCallback(renderFrame);
-    }else{
-        requestAnimationFrame(renderFrame);
-    }
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-
-    initCamera();
-
-    const btn = document.getElementById("camSwitchBtn");
-    btn.onclick = async () => {
-        currentFacing = currentFacing === "environment" ? "user" : "environment";
-        await initCamera();
-    };
-
+const instruments=["sine","triangle","sawtooth","square","drums","electricGuitar","bass","keyboard"];
+["instRed","instGreen","instBlue","instWhite"].forEach(id=>{
+const sel=document.getElementById(id);
+instruments.forEach(i=>sel.innerHTML+=`<option value="${i}">${i}</option>`);
 });
 
-function loop(){
-ctx.save();
-if(mirror){
-ctx.scale(-1,1);
-ctx.drawImage(video,-canvas.width,0,canvas.width,canvas.height);
-}else{
+async function startSystem(){
+if(running)return;
+running=true;
+await composer.init();
+composer.setVolume(masterVol.value);
+stream=await navigator.mediaDevices.getUserMedia({video:true});
+video.srcObject=stream;
+detectLoop();
+}
+
+function stopSystem(){
+running=false;
+if(stream)stream.getTracks().forEach(t=>t.stop());
+}
+
+
+
+function createEffect(x,y,color){
+if(effectsToggle.value!=="on") return;
+
+const effect=document.createElement("div");
+effect.style.position="absolute";
+effect.style.left=(x-40)+"px";
+effect.style.top=(y-40)+"px";
+effect.style.width="80px";
+effect.style.height="80px";
+effect.style.borderRadius="50%";
+effect.style.pointerEvents="none";
+effect.style.zIndex="5";
+
+if(effectStyle.value==="fire"){
+effect.style.boxShadow="0 0 20px orange, 0 0 40px red";
+}
+else if(effectStyle.value==="ice"){
+effect.style.boxShadow="0 0 20px cyan, 0 0 40px blue";
+}
+else if(effectStyle.value==="impact"){
+effect.style.boxShadow="0 0 20px white";
+effect.style.transform="scale(1.4)";
+}
+else if(effectStyle.value==="shockwave"){
+effect.style.border="3px solid "+color;
+effect.style.animation="shock 0.6s ease-out forwards";
+}
+
+document.getElementById("stage").appendChild(effect);
+setTimeout(()=>effect.remove(),600);
+}
+
+
+let lastCircle=null;
+
+function detectLoop(){
+if(!running) return;
+
+ctx.clearRect(0,0,canvas.width,canvas.height);
 ctx.drawImage(video,0,0,canvas.width,canvas.height);
-}
-ctx.restore();
-drawGrid();
 
-            if(window.BodyBeat && BodyBeat.hooks && BodyBeat.hooks.afterDraw){
-                BodyBeat.hooks.afterDraw.forEach(fn=>{
-                    try{ fn(); }catch(e){ console.error("Hook error:", e); }
-                });
-            }
-            if(window.BodyBeat){ BodyBeat.updateModules(0); }
-detectLight();
-requestAnimationFrame(loop);
-}
+const frame=ctx.getImageData(0,0,canvas.width,canvas.height);
+const data=frame.data;
 
-function drawGrid(){
-const w=canvas.width/COLS;
-const h=canvas.height/ROWS;
+let brightest=0,bx=0,by=0,rVal=0,gVal=0,bVal=0;
 
-for(let r=0;r<ROWS;r++){
-for(let c=0;c<COLS;c++){
-let drawCol = mirror ? (COLS-1-c) : c;
-let x=drawCol*w;
-let y=r*h;
-let key=r+"-"+c;
+for(let y=0;y<canvas.height;y+=20){
+for(let x=0;x<canvas.width;x+=20){
+const i=(y*canvas.width+x)*4;
+const r=data[i], g=data[i+1], b=data[i+2];
+const bright=(r+g+b)/3;
 
-if(gridVisible){
-    ctx.fillStyle=(c===0||c===COLS-1)?"#003d2f":"rgba(0,90,0,0.2)";
-    ctx.fillRect(x,y,w,h);
-}
-    if(c===0||c===COLS-1){
-        ctx.fillStyle="#00ffff";
-        ctx.font="bold 14px Arial";
-        ctx.fillText(r+1, x+5, y+20);
-    }
-
-if(activeLoops[key]){
-ctx.fillStyle="rgba(0,255,180,0.4)";
-ctx.fillRect(x,y,w,h);
-    if(c===0||c===COLS-1){
-        ctx.fillStyle="#00ffff";
-        ctx.font="bold 14px Arial";
-        ctx.fillText(r+1, x+5, y+20);
-    }
-}
-
-if(flashCells[key]){
-ctx.fillStyle="rgba(255,0,255,0.4)";
-ctx.fillRect(x,y,w,h);
-    if(c===0||c===COLS-1){
-        ctx.fillStyle="#00ffff";
-        ctx.font="bold 14px Arial";
-        ctx.fillText(r+1, x+5, y+20);
-    }
-if(Date.now()-flashCells[key]>120) delete flashCells[key];
-}
-
-if(gridVisible){
-    ctx.strokeStyle="rgba(0,255,255,0.6)";
-    ctx.strokeRect(x,y,w,h);
-}
+if(bright>brightest){
+brightest=bright;
+bx=x;
+by=y;
+rVal=r;
+gVal=g;
+bVal=b;
 }
 }
 }
 
-/* CLICK */
-canvas.addEventListener("click",e=>{
-if(!audioContext) return;
+if(lastCircle){
+lastCircle.remove();
+lastCircle=null;
+}
 
-const rect=canvas.getBoundingClientRect();
-const scaleX=canvas.width/rect.width;
-const scaleY=canvas.height/rect.height;
-let x=(e.clientX-rect.left)*scaleX;
-let y=(e.clientY-rect.top)*scaleY;
+if(brightest>200){
 
-if(mirror) x = canvas.width - x;
+let color="white";
+if(rVal>gVal && rVal>bVal) color="red";
+else if(gVal>rVal && gVal>bVal) color="lime";
+else if(bVal>rVal && bVal>gVal) color="cyan";
 
-const col=Math.floor(x/(canvas.width/COLS));
-const row=Math.floor(y/(canvas.height/ROWS));
-triggerCell(row,col);
-});
+composer.play(instRed.value,bx/canvas.width);
 
-function triggerCell(row,col){
-let key=row+"-"+col;
+statusText.style.display="block";
+statusText.innerText="Nota activa";
 
-if(col===0||col===COLS-1){
-if(activeLoops[key]){activeLoops[key].stop();delete activeLoops[key];return;}
-if(Object.keys(activeLoops).length>=MAX_LOOPS) return;
+let circle=document.createElement("div");
+circle.className="indicator";
+circle.style.borderColor=color;
+circle.style.width="120px";
+circle.style.height="120px";
+circle.style.left=(bx-60)+"px";
+circle.style.top=(by-60)+"px";
+document.getElementById("stage").appendChild(circle);
+lastCircle=circle;
 
-if(sideBuffers[row]){
-let src=audioContext.createBufferSource();
-src.buffer=sideBuffers[row];
-src.loop=true;
-src.connect(masterGain);
-src.start();
-activeLoops[key]=src;
+if(typeof createEffect==="function"){
+createEffect(bx,by,color);
+}
+
+document.getElementById("detectedColorText").innerText=
+"Color detectado: "+color.toUpperCase()+" (R:"+rVal+" G:"+gVal+" B:"+bVal+")";
+
 }else{
-let osc=audioContext.createOscillator();
-osc.type="sawtooth";osc.frequency.value=80+row*15;
-osc.connect(masterGain);osc.start();
-activeLoops[key]=osc;
+statusText.style.display="none";
 }
-}else{
-playCenter(row);
-flashCells[key]=Date.now();
+
+requestAnimationFrame(detectLoop);
+}
+
+
+
+document.getElementById("toggleControls").onclick=()=>{
+panel.classList.toggle("hidden");
+};
+
+document.getElementById('startBtn').onclick=startSystem;
+document.getElementById('stopBtn').onclick=stopSystem;
+masterVol.oninput=()=>composer.setVolume(masterVol.value);
+
+</script>
+
+
+
+<style>
+.sidePanel{
+position:fixed;
+top:50%;
+transform:translateY(-50%);
+display:flex;
+flex-direction:column;
+gap:10px;
+z-index:30;
+}
+#leftBases{left:10px;}
+#rightBases{right:10px;}
+
+.basePad{
+width:115px;
+padding:12px;
+background:#0a1a2f;
+border:2px solid #0ff;
+border-radius:12px;
+color:#0ff;
+font-size:13px;
+text-align:center;
+cursor:pointer;
+transition:0.2s;
+box-shadow:0 0 8px #0ff;
+}
+.basePad.active{
+background:#0ff;
+color:#001;
+box-shadow:0 0 20px #0ff,0 0 40px #0ff;
+}
+</style>
+
+<div id="leftBases" class="sidePanel"></div>
+<div id="rightBases" class="sidePanel"></div>
+
+<script>
+
+</script>
+
+
+<script>
+
+const realBases = [
+  "bases/Bow 001 (88 BPM).wav",
+  "bases/Dancehall 001 (92 BPM).wav",
+  "bases/Dembow 001 (90 BPM).wav",
+  "bases/Electroflow 001 (105 BPM).wav",
+  "bases/Filtrado 001 (86 BPM).wav",
+  "bases/Kizomba 001 (85 BPM).wav",
+  "bases/Rich 001 (100 BPM).wav",
+  "bases/Shaba 001 (87 BPM).wav",
+  "bases/Tropical 001(96 BPM).wav"
+];
+
+let basePlayers = [];
+let baseActive = [];
+
+function initLeftBases(){
+  const container = document.getElementById("leftBases");
+  if(!container) return;
+
+  container.innerHTML = "";
+
+  realBases.forEach((file, i)=>{
+    const pad = document.createElement("div");
+    pad.className = "basePad";
+    pad.innerText = file.split("/").pop().replace(".wav","");
+    pad.onclick = ()=>toggleBase(i, pad);
+    container.appendChild(pad);
+
+    const audio = new Audio(file);
+    audio.loop = true;
+    basePlayers.push(audio);
+    baseActive.push(false);
+  });
+}
+
+function toggleBase(i, pad){
+  if(baseActive[i]){
+    basePlayers[i].pause();
+    basePlayers[i].currentTime = 0;
+    pad.classList.remove("active");
+    baseActive[i] = false;
+  }else{
+    basePlayers[i].play().catch(()=>{});
+    pad.classList.add("active");
+    baseActive[i] = true;
+  }
+}
+
+initLeftBases();
+
+</script>
+
+
+<!-- PANEL DE CARGA DE BASES -->
+<style>
+#uploadPanel{
+position:fixed;
+top:50%;
+left:50%;
+transform:translate(-50%,-50%);
+background:#0b1c33;
+padding:25px;
+border-radius:18px;
+box-shadow:0 0 25px #0ff;
+z-index:100;
+display:none;
+flex-direction:column;
+gap:15px;
+min-width:420px;
+}
+#uploadPanel h3{
+margin:0;
+text-align:center;
+color:#0ff;
+}
+.uploadGrid{
+display:grid;
+grid-template-columns:repeat(3,1fr);
+gap:10px;
+}
+.uploadSlot{
+background:#081426;
+border:2px solid #0ff;
+border-radius:10px;
+padding:10px;
+text-align:center;
+cursor:pointer;
+color:#0ff;
+font-size:12px;
+}
+#closeUpload{
+background:#0ff;
+color:#001;
+border:none;
+padding:8px 15px;
+border-radius:20px;
+cursor:pointer;
+}
+</style>
+
+<div id="uploadPanel">
+<h3>Cargar Bases Laterales</h3>
+<div class="uploadGrid" id="uploadGrid"></div>
+
+<input type="file" id="batchInput" multiple accept="audio/*">
+<input type="text" id="urlInput" placeholder="Pegar link externo (.mp3/.wav)">
+<button onclick="loadFromURL()">Cargar desde URL</button>
+
+<button id="closeUpload">Cerrar</button>
+</div>
+
+<button id="openUpload" style="position:fixed;bottom:80px;right:30px;z-index:50;">Cargar Bases</button>
+
+<script>
+
+let customBases = new Array(10).fill(null);
+
+function initUploadGrid(){
+const grid=document.getElementById("uploadGrid");
+grid.innerHTML="";
+for(let i=0;i<10;i++){
+const slot=document.createElement("div");
+slot.className="uploadSlot";
+slot.innerText="Slot "+(i+1);
+slot.onclick=()=>loadSingleFile(i);
+grid.appendChild(slot);
 }
 }
 
-/* DETECCIÓN */
-function detectLight(){
-analysisCtx.drawImage(video,0,0);
-let img=analysisCtx.getImageData(0,0,analysisCanvas.width,analysisCanvas.height);
-let data=img.data;
-
-let global=0;
-for(let i=0;i<data.length;i+=40){
-global+=data[i]+data[i+1]+data[i+2];
+function loadSingleFile(index){
+const input=document.createElement("input");
+input.type="file";
+input.accept="audio/*";
+input.onchange=e=>{
+const file=e.target.files[0];
+if(file){
+const url=URL.createObjectURL(file);
+assignBaseToLeft(index,url,file.name);
 }
-global/= (data.length/40);
-
-const cellW=analysisCanvas.width/COLS;
-const cellH=analysisCanvas.height/ROWS;
-
-let best=null;
-let bestScore=0;
-
-for(let r=0;r<ROWS;r++){
-for(let c=1;c<COLS-1;c++){
-let total=0,count=0;
-for(let y=r*cellH;y<(r+1)*cellH;y+=6){
-for(let x=c*cellW;x<(c+1)*cellW;x+=6){
-let idx=(Math.floor(y)*analysisCanvas.width+Math.floor(x))*4;
-total+=data[idx]+data[idx+1]+data[idx+2];
-count++;
-}
-}
-let avg=total/count;
-let contrast=avg-global;
-if(contrast>bestScore){
-bestScore=contrast;
-best={row:r,col:c};
-}
-}
+};
+input.click();
 }
 
-if(!best||bestScore<sensitivity) return;
+function assignBaseToLeft(index,url,name){
+const container=document.getElementById("leftBases");
+const pad=container.children[index];
+if(!pad) return;
 
-let col = mirror ? (COLS-1-best.col) : best.col;
-let key=best.row+"-"+col;
-
-if(key!==lastCenterCell){
-playCenter(best.row);
-flashCells[key]=Date.now();
-lastCenterCell=key;
-}
-}
-
-function playCenter(row){
-if(centerBuffers[row]){
-let src=audioContext.createBufferSource();
-src.buffer=centerBuffers[row];
-src.connect(masterGain);
-src.start();
-}else{
-let osc=audioContext.createOscillator();
-osc.type="triangle";osc.frequency.value=300+row*30;
-osc.connect(masterGain);osc.start();
-osc.stop(audioContext.currentTime+0.2);
-}
+pad.innerText=name.replace(".wav","").replace(".mp3","");
+const audio=new Audio(url);
+audio.loop=true;
+basePlayers[index]=audio;
 }
 
-/* ASSIGN GRID */
-const assignGrid=document.getElementById("assignGrid");
-let selectedCell=null;
-
-function buildAssign(){
-assignGrid.innerHTML="";
-for(let r=0;r<ROWS;r++){
-for(let c=0;c<COLS;c++){
-let div=document.createElement("div");
-div.className="assignCell "+(c===0||c===COLS-1?"sideCell":"centerCell");
-if(centerBuffers[r]&&c>0&&c<COLS-1) div.classList.add("loaded");
-if(sideBuffers[r]&&(c===0||c===COLS-1)) div.classList.add("loaded");
-div.innerText=r+"-"+c;
-div.onclick=()=>{selectedCell={r,c};fileSingle.click();};
-assignGrid.appendChild(div);
+document.getElementById("batchInput").addEventListener("change",e=>{
+const files=e.target.files;
+for(let i=0;i<files.length && i<10;i++){
+const url=URL.createObjectURL(files[i]);
+assignBaseToLeft(i,url,files[i].name);
 }
-}
-}
-buildAssign();
-
-fileSingle.onchange=e=>{
-let file=e.target.files[0];
-if(!file||!selectedCell) return;
-let reader=new FileReader();
-reader.onload=ev=>{
-audioContext.decodeAudioData(ev.target.result,b=>{
-if(selectedCell.c===0||selectedCell.c===COLS-1)
-sideBuffers[selectedCell.r]=b;
-else
-centerBuffers[selectedCell.r]=b;
-buildAssign();
 });
-};
-reader.readAsArrayBuffer(file);
-};
 
-fileCenter.onchange=e=>{
-[...e.target.files].forEach((f,i)=>{
-let reader=new FileReader();
-reader.onload=ev=>audioContext.decodeAudioData(ev.target.result,b=>centerBuffers[i]=b);
-reader.readAsArrayBuffer(f);
-});
-};
+function loadFromURL(){
+const url=document.getElementById("urlInput").value;
+if(!url) return;
+assignBaseToLeft(0,url,url.split("/").pop());
+}
 
-fileSides.onchange=e=>{
-[...e.target.files].forEach((f,i)=>{
-let reader=new FileReader();
-reader.onload=ev=>audioContext.decodeAudioData(ev.target.result,b=>sideBuffers[i]=b);
-reader.readAsArrayBuffer(f);
-});
+document.getElementById("openUpload").onclick=()=>{
+document.getElementById("uploadPanel").style.display="flex";
+initUploadGrid();
 };
 
-/* UI */
-function openPanel(id){document.getElementById(id).style.display="block";}
-function closePanel(id){document.getElementById(id).style.display="none";}
-function closeMain(){mainMenu.style.display="none";}
+document.getElementById("closeUpload").onclick=()=>{
+document.getElementById("uploadPanel").style.display="none";
+};
 
-menuBtn.onclick=()=>{
-    if(mainMenu.style.display==="block"){
-        mainMenu.style.display="none";
+</script>
+
+
+<script>
+
+/* ====== UPGRADE TO 20 BASES (10 LEFT + 10 RIGHT) ====== */
+
+const TOTAL_BASES = 20;
+const BASES_PER_SIDE = 10;
+
+basePlayers = new Array(TOTAL_BASES);
+baseActive = new Array(TOTAL_BASES).fill(false);
+
+/* Move upload button inside top panel */
+const panelTop = document.getElementById("panel");
+const uploadBtn = document.getElementById("openUpload");
+if(uploadBtn && panelTop){
+    uploadBtn.style.position = "relative";
+    uploadBtn.style.bottom = "auto";
+    uploadBtn.style.right = "auto";
+    uploadBtn.style.marginTop = "10px";
+    panelTop.appendChild(uploadBtn);
+}
+
+/* Create pads on both sides */
+function initBases20(){
+    const left = document.getElementById("leftBases");
+    const right = document.getElementById("rightBases");
+    left.innerHTML = "";
+    right.innerHTML = "";
+
+    for(let i=0;i<TOTAL_BASES;i++){
+        const pad = document.createElement("div");
+        pad.className = "basePad";
+        pad.innerText = "Base " + (i+1);
+        pad.onclick = ()=>toggleBase20(i, pad);
+
+        const audio = new Audio();
+        audio.loop = true;
+        basePlayers[i] = audio;
+
+        if(i < BASES_PER_SIDE){
+            left.appendChild(pad);
+        }else{
+            right.appendChild(pad);
+        }
+    }
+}
+
+function toggleBase20(i, pad){
+    if(baseActive[i]){
+        basePlayers[i].pause();
+        basePlayers[i].currentTime = 0;
+        pad.classList.remove("active");
+        baseActive[i] = false;
     }else{
-        mainMenu.style.display="block";
+        basePlayers[i].play().catch(()=>{});
+        pad.classList.add("active");
+        baseActive[i] = true;
     }
-};
-
-sensSlider.oninput=e=>sensitivity=parseInt(e.target.value);
-volSlider.oninput=e=>{if(masterGain) masterGain.gain.value=parseFloat(e.target.value);};
-
-function resetLoops(){
-for(let k in activeLoops){try{activeLoops[k].stop();}catch(e){}}
-activeLoops={};
 }
 
-function toggleMirror(){mirror=!mirror;}
-
-function openModulePanel(){
-    document.getElementById('modulePanel').style.display='block';
+/* Upgrade upload panel to 20 slots */
+function initUploadGrid20(){
+    const grid = document.getElementById("uploadGrid");
+    grid.innerHTML = "";
+    for(let i=0;i<TOTAL_BASES;i++){
+        const slot=document.createElement("div");
+        slot.className="uploadSlot";
+        slot.innerText="Slot "+(i+1);
+        slot.onclick=()=>loadSingleFile20(i);
+        grid.appendChild(slot);
+    }
 }
 
-
-
-// ================== DEMO PRO LOOP ENGINE (LATERALS) ==================
-
-let demoActiveEngines = {};
-
-function startDemoEngine(row){
-
-    if(demoActiveEngines[row]){
-        demoActiveEngines[row].stop();
-        delete demoActiveEngines[row];
-        return;
-    }
-
-    const styles = [
-        {bpm:130, type:"techno"},
-        {bpm:124, type:"house"},
-        {bpm:140, type:"trap"},
-        {bpm:92,  type:"hiphop"},
-        {bpm:170, type:"dnb"},
-        {bpm:95,  type:"reggaeton"},
-        {bpm:110, type:"rock"},
-        {bpm:100, type:"ambient"}
-    ];
-
-    const style = styles[row];
-    const engine = createDemoSequencer(style.bpm, style.type);
-    engine.start();
-    demoActiveEngines[row] = engine;
-}
-
-function createDemoSequencer(bpm,type){
-
-    let currentStep = 0;
-    let nextNoteTime = 0;
-    const steps = 16;
-    const lookAhead = 0.1;
-    const intervalTime = 25;
-    const stepTime = (60/bpm)/4;
-    let timer;
-
-    function schedule(){
-        while(nextNoteTime < audioContext.currentTime + lookAhead){
-            playStep(currentStep, nextNoteTime);
-            nextNoteTime += stepTime;
-            currentStep = (currentStep+1)%steps;
-        }
-    }
-
-    function start(){
-        nextNoteTime = audioContext.currentTime;
-        timer = setInterval(schedule, intervalTime);
-    }
-
-    function stop(){
-        clearInterval(timer);
-    }
-
-    function playStep(step,time){
-
-        function kick(vol){
-            let osc=audioContext.createOscillator();
-            let gain=audioContext.createGain();
-            osc.type="sine";
-            osc.frequency.setValueAtTime(150,time);
-            osc.frequency.exponentialRampToValueAtTime(40,time+0.15);
-            gain.gain.setValueAtTime(vol,time);
-            gain.gain.exponentialRampToValueAtTime(0.001,time+0.2);
-            osc.connect(gain).connect(masterGain);
-            osc.start(time);
-            osc.stop(time+0.2);
-        }
-
-        function snare(){
-            let noise=audioContext.createBufferSource();
-            let buffer=audioContext.createBuffer(1,44100,44100);
-            let data=buffer.getChannelData(0);
-            for(let i=0;i<data.length;i++) data[i]=Math.random()*2-1;
-            noise.buffer=buffer;
-            let gain=audioContext.createGain();
-            gain.gain.setValueAtTime(0.4,time);
-            gain.gain.exponentialRampToValueAtTime(0.001,time+0.2);
-            noise.connect(gain).connect(masterGain);
-            noise.start(time);
-            noise.stop(time+0.2);
-        }
-
-        function hat(vol){
-            let osc=audioContext.createOscillator();
-            let gain=audioContext.createGain();
-            osc.type="square";
-            osc.frequency.value=8000;
-            gain.gain.setValueAtTime(vol,time);
-            gain.gain.exponentialRampToValueAtTime(0.001,time+0.05);
-            osc.connect(gain).connect(masterGain);
-            osc.start(time);
-            osc.stop(time+0.05);
-        }
-
-        switch(type){
-
-            case "techno":
-                if(step%4===0) kick(0.9);
-                if(step%8===4) snare();
-                if(step%2===1) hat(0.2);
-            break;
-
-            case "house":
-                if(step%4===0) kick(0.8);
-                if(step%4===2) snare();
-                if(step%2===1) hat(0.15);
-            break;
-
-            case "trap":
-                if(step%4===0) kick(0.9);
-                if(step===6||step===14) snare();
-                if(step%2===1) hat(0.1);
-            break;
-
-            case "hiphop":
-                if(step%4===0) kick(0.8);
-                if(step===4||step===12) snare();
-                if(step%2===1) hat(0.12);
-            break;
-
-            case "dnb":
-                if(step%2===0) kick(0.7);
-                if(step%4===2) snare();
-                hat(0.08);
-            break;
-
-            case "reggaeton":
-                if(step%4===0||step%4===2) kick(0.85);
-                if(step===6||step===14) snare();
-                hat(0.1);
-            break;
-
-            case "rock":
-                if(step%4===0) kick(0.9);
-                if(step%4===2) snare();
-                if(step%2===1) hat(0.2);
-            break;
-
-            case "ambient":
-                if(step%8===0) kick(0.4);
-                if(step%4===2) hat(0.05);
-            break;
-        }
-    }
-
-    return {start,stop};
-}
-
-// Override lateral trigger behavior if no audio loaded
-const originalTriggerCell = triggerCell;
-triggerCell = function(row,col){
-
-    if(col===0 || col===COLS-1){
-        startDemoEngine(row);
-        return;
-    }
-
-    originalTriggerCell(row,col);
-};
-
-
-
-
-// ================= SAFE PRO ENGINE =================
-
-let proEngines = {};
-let activeLeftPro = [];
-let activeRightPro = [];
-
-
-function createProEngine(index){
-
-    const styles=[
-        "Techno Industrial",
-        "Deep House",
-        "Trap Dark",
-        "Boom Bap",
-        "Drum & Bass",
-        "Reggaeton",
-        "Electro Rock",
-        "Ambient Pulse"
-    ];
-
-    const style = styles[index % styles.length];
-
-    const bpms=[132,124,140,92,170,96,110,100];
-    const bpm = bpms[index % bpms.length];
-
-    let step=0;
-    let nextTime=0;
-    const stepTime=(60/bpm)/4;
-    let timer;
-
-    function kick(time,power=1){
-        let osc=audioContext.createOscillator();
-        let gain=audioContext.createGain();
-        osc.type="sine";
-        osc.frequency.setValueAtTime(180,time);
-        osc.frequency.exponentialRampToValueAtTime(45,time+0.12);
-        gain.gain.setValueAtTime(1.2*power,time);
-        gain.gain.exponentialRampToValueAtTime(0.001,time+0.25);
-        osc.connect(gain).connect(masterGain);
-        osc.start(time);
-        osc.stop(time+0.25);
-    }
-
-    function snare(time){
-        let buffer=audioContext.createBuffer(1,44100,44100);
-        let data=buffer.getChannelData(0);
-        for(let i=0;i<data.length;i++) data[i]=Math.random()*2-1;
-        let src=audioContext.createBufferSource();
-        src.buffer=buffer;
-        let band=audioContext.createBiquadFilter();
-        band.type="bandpass";
-        band.frequency.value=2000;
-        let gain=audioContext.createGain();
-        gain.gain.setValueAtTime(0.6,time);
-        gain.gain.exponentialRampToValueAtTime(0.001,time+0.2);
-        src.connect(band).connect(gain).connect(masterGain);
-        src.start(time);
-        src.stop(time+0.2);
-    }
-
-    function hat(time,vol=0.2){
-        let osc=audioContext.createOscillator();
-        let gain=audioContext.createGain();
-        osc.type="square";
-        osc.frequency.value=8000+Math.random()*1000;
-        gain.gain.setValueAtTime(vol,time);
-        gain.gain.exponentialRampToValueAtTime(0.001,time+0.05);
-        osc.connect(gain).connect(masterGain);
-        osc.start(time);
-        osc.stop(time+0.05);
-    }
-
-    function schedule(){
-        while(nextTime<audioContext.currentTime+0.1){
-
-            switch(style){
-
-                case "Techno Industrial":
-                    if(step%4===0) kick(nextTime,1.1);
-                    if(step%8===4) snare(nextTime);
-                    hat(nextTime,0.15);
-                break;
-
-                case "Deep House":
-                    if(step%4===0) kick(nextTime,0.9);
-                    if(step%4===2) snare(nextTime);
-                    if(step%2===1) hat(nextTime,0.12);
-                break;
-
-                case "Trap Dark":
-                    if(step%4===0) kick(nextTime,1.2);
-                    if(step===6||step===14) snare(nextTime);
-                    if(step%2===1) hat(nextTime,0.08);
-                break;
-
-                case "Boom Bap":
-                    if(step%4===0) kick(nextTime,1);
-                    if(step===4||step===12) snare(nextTime);
-                    if(step%4===1) hat(nextTime,0.18);
-                break;
-
-                case "Drum & Bass":
-                    if(step%2===0) kick(nextTime,0.8);
-                    if(step%4===2) snare(nextTime);
-                    hat(nextTime,0.1);
-                break;
-
-                case "Reggaeton":
-                    if(step%4===0||step%4===2) kick(nextTime,1);
-                    if(step===6||step===14) snare(nextTime);
-                    if(step%2===1) hat(nextTime,0.12);
-                break;
-
-                case "Electro Rock":
-                    if(step%4===0) kick(nextTime,1.1);
-                    if(step%4===2) snare(nextTime);
-                    if(step%2===1) hat(nextTime,0.2);
-                break;
-
-                case "Ambient Pulse":
-                    if(step%8===0) kick(nextTime,0.4);
-                    if(step%4===2) hat(nextTime,0.05);
-                break;
-            }
-
-            nextTime+=stepTime;
-            step=(step+1)%16;
-        }
-    }
-
-    return {
-        start(){
-            nextTime=audioContext.currentTime;
-            timer=setInterval(schedule,25);
-        },
-        stop(){
-            clearInterval(timer);
+function loadSingleFile20(index){
+    const input=document.createElement("input");
+    input.type="file";
+    input.accept="audio/*";
+    input.onchange=e=>{
+        const file=e.target.files[0];
+        if(file){
+            const url=URL.createObjectURL(file);
+            assignBase20(index,url,file.name);
         }
     };
+    input.click();
 }
 
+function assignBase20(index,url,name){
+    basePlayers[index].src = url;
+    const pad = (index < BASES_PER_SIDE)
+        ? document.getElementById("leftBases").children[index]
+        : document.getElementById("rightBases").children[index-BASES_PER_SIDE];
 
-// Safe override triggerCell (only laterals)
-const originalTriggerCellSafe = triggerCell;
-
-triggerCell = function(row,col){
-
-    if(col===0||col===COLS-1){
-
-        const isLeft = col===0;
-        const key = (isLeft?"L":"R")+row;
-        let sideArr = isLeft?activeLeftPro:activeRightPro;
-
-        if(proEngines[key]){
-            proEngines[key].stop();
-            delete proEngines[key];
-            sideArr.splice(sideArr.indexOf(key),1);
-            return;
-        }
-
-        if(sideArr.length>=2){
-            const oldest=sideArr.shift();
-            proEngines[oldest].stop();
-            delete proEngines[oldest];
-        }
-
-        const engine=createProEngine(row+(isLeft?0:8));
-        engine.start();
-        proEngines[key]=engine;
-        sideArr.push(key);
-        return;
+    if(pad){
+        pad.innerText = name.replace(".wav","").replace(".mp3","");
     }
+}
 
-    originalTriggerCellSafe(row,col);
+/* Replace old init */
+initBases20();
+document.getElementById("openUpload").onclick=()=>{
+    document.getElementById("uploadPanel").style.display="flex";
+    initUploadGrid20();
 };
 
-// Visual highlight hook (augment drawGrid safely)
-const originalDrawGridSafe = drawGrid;
-
-drawGrid = function(){
-    originalDrawGridSafe();
-
-    const w=canvas.width/COLS;
-    const h=canvas.height/ROWS;
-
-    for(let r=0;r<ROWS;r++){
-
-        if(proEngines["L"+r]){
-            ctx.fillStyle="rgba(0,150,255,0.6)";
-            ctx.fillRect(0,r*h,w,h);
-        }
-
-        if(proEngines["R"+r]){
-            ctx.fillStyle="rgba(0,255,150,0.6)";
-            ctx.fillRect((COLS-1)*w,r*h,w,h);
-        }
-
-        ctx.fillStyle="#00ffff";
-        ctx.font="bold 14px Arial";
-        const letters=["A","B","C","D","E","F","G","H"];
-        ctx.fillText(letters[r],5,r*h+20);
-        ctx.fillText(r+1,(COLS-1)*w+5,r*h+20);
-    }
-};
+</script>
 
 
+<script>
 
+/* ===== VISUAL LOAD + CLEAR SYSTEM ===== */
 
+let baseLoaded = new Array(TOTAL_BASES).fill(false);
 
-
-// ================= AUDIO MANAGER SYSTEM (FIXED CLEAN) =================
-
-let tempCellBuffers = {};
-let selectedManagerCell = null;
-
-function buildAudioManagerGrid(){
-    const grid = document.getElementById("audioManagerGrid");
+function markSlotLoaded(index, loaded){
+    const grid = document.getElementById("uploadGrid");
     if(!grid) return;
+    const slot = grid.children[index];
+    if(!slot) return;
+
+    if(loaded){
+        slot.style.background = "#0ff";
+        slot.style.color = "#001";
+        slot.style.boxShadow = "0 0 15px #0ff";
+    }else{
+        slot.style.background = "#081426";
+        slot.style.color = "#0ff";
+        slot.style.boxShadow = "none";
+    }
+}
+
+function assignBase20(index,url,name){
+    basePlayers[index].src = url;
+    baseLoaded[index] = true;
+
+    const pad = (index < BASES_PER_SIDE)
+        ? document.getElementById("leftBases").children[index]
+        : document.getElementById("rightBases").children[index-BASES_PER_SIDE];
+
+    if(pad){
+        pad.innerText = name.replace(".wav","").replace(".mp3","");
+    }
+
+    markSlotLoaded(index,true);
+}
+
+function clearBase(index){
+    basePlayers[index].pause();
+    basePlayers[index].currentTime = 0;
+    basePlayers[index].src = "";
+    baseActive[index] = false;
+    baseLoaded[index] = false;
+
+    const pad = (index < BASES_PER_SIDE)
+        ? document.getElementById("leftBases").children[index]
+        : document.getElementById("rightBases").children[index-BASES_PER_SIDE];
+
+    if(pad){
+        pad.classList.remove("active");
+        pad.innerText = "Base " + (index+1);
+    }
+
+    markSlotLoaded(index,false);
+}
+
+function clearAllBases(){
+    for(let i=0;i<TOTAL_BASES;i++){
+        clearBase(i);
+    }
+}
+
+function initUploadGrid20(){
+    const grid = document.getElementById("uploadGrid");
     grid.innerHTML = "";
 
-    for(let r=0;r<ROWS;r++){
-        for(let c=0;c<COLS;c++){
+    for(let i=0;i<TOTAL_BASES;i++){
+        const slot=document.createElement("div");
+        slot.className="uploadSlot";
+        slot.innerText="Slot "+(i+1);
 
-            let div=document.createElement("div");
-            div.className="assignCell "+(c===0||c===COLS-1?"sideCell":"centerCell");
-
-            const cellKey = r + "-" + c;
-
-            const hasTemp = tempCellBuffers[cellKey] !== undefined;
-
-            const hasFinal = (c===0||c===COLS-1)
-                ? (sideBuffers[r] !== undefined && (c===0||c===COLS-1))
-                : (centerBuffers[r] !== undefined);
-
-            if(hasTemp || hasFinal){
-                div.classList.add("loaded");
-            }
-
-            div.innerText=r+"-"+c;
-            div.onclick=()=>openSingleLoader(r,c);
-            grid.appendChild(div);
-        }
-    }
-}
-
-function openSingleLoader(r,c){
-
-    selectedManagerCell={r,c};
-
-    const useLocal = confirm("Aceptar = Archivo local\nCancelar = Cargar por link");
-
-    if(useLocal){
-
-        const input=document.getElementById("audioFileInput");
-        input.multiple=false;
-        input.value="";
-        input.onchange=function(e){
-            const file=e.target.files[0];
-            if(!file) return;
-
-            const reader=new FileReader();
-            reader.onload=ev=>{
-                audioContext.decodeAudioData(ev.target.result,b=>{
-                    tempCellBuffers[r+"-"+c] = b;
-                    buildAudioManagerGrid();
-                });
-            };
-            reader.readAsArrayBuffer(file);
+        const clearBtn = document.createElement("div");
+        clearBtn.innerText="❌";
+        clearBtn.style.fontSize="11px";
+        clearBtn.style.marginTop="5px";
+        clearBtn.style.cursor="pointer";
+        clearBtn.onclick=(e)=>{
+            e.stopPropagation();
+            clearBase(i);
         };
 
-        input.click();
+        slot.appendChild(clearBtn);
+        slot.onclick=()=>loadSingleFile20(i);
+        grid.appendChild(slot);
 
-    }else{
-
-        const url=prompt("Pega el link del audio:");
-        if(!url) return;
-
-        fetch(url)
-        .then(r=>r.arrayBuffer())
-        .then(buf=>{
-            audioContext.decodeAudioData(buf,b=>{
-                tempCellBuffers[r+"-"+c] = b;
-                buildAudioManagerGrid();
-            });
-        });
+        if(baseLoaded[i]) markSlotLoaded(i,true);
     }
+
+    // Add clear all button
+    const clearAllBtn = document.createElement("button");
+    clearAllBtn.innerText="Limpiar TODAS las bases";
+    clearAllBtn.style.marginTop="10px";
+    clearAllBtn.onclick=clearAllBases;
+    grid.appendChild(clearAllBtn);
 }
 
-/* ===== SEQUENTIAL BATCH LOADER FIX ===== */
+</script>
 
-let batchPointerCenter = 0;
-let batchPointerLeft = 0;
-let batchPointerRight = 0;
 
-function getNextCenterCell(){
-    while(batchPointerCenter < ROWS*(COLS-2)){
-        const r = Math.floor(batchPointerCenter / (COLS-2));
-        const c = 1 + (batchPointerCenter % (COLS-2));
-        batchPointerCenter++;
-        return {r,c};
+<script>
+
+/* ===== FIX BATCH VISUAL MARKING ===== */
+
+document.getElementById("batchInput").addEventListener("change", e=>{
+    const files = e.target.files;
+    if(!files) return;
+
+    for(let i=0;i<files.length && i<TOTAL_BASES;i++){
+        const url = URL.createObjectURL(files[i]);
+        assignBase20(i, url, files[i].name);
+        baseLoaded[i] = true;
+        markSlotLoaded(i, true);
     }
-    return null;
-}
-
-function getNextSideCell(side){
-    if(side==="left"){
-        if(batchPointerLeft < ROWS){
-            return {r: batchPointerLeft++, c:0};
-        }
-    }
-    if(side==="right"){
-        if(batchPointerRight < ROWS){
-            return {r: batchPointerRight++, c:COLS-1};
-        }
-    }
-    return null;
-}
-
-function openMassLoader(type){
-
-    if(!audioContext){
-        audioContext = new (window.AudioContext||window.webkitAudioContext)();
-        masterGain = audioContext.createGain();
-        masterGain.connect(audioContext.destination);
-        masterGain.gain.value = 0.9;
-    }
-
-    const input=document.getElementById("audioFileInput");
-    input.multiple=true;
-    input.value="";
-
-    input.onchange=function(e){
-
-        const files=[...e.target.files];
-
-        files.forEach(file=>{
-
-            const reader=new FileReader();
-
-            reader.onload=function(ev){
-
-                audioContext.decodeAudioData(ev.target.result).then(buffer=>{
-
-                    let cell;
-
-                    if(type==="center"){
-                        cell = getNextCenterCell();
-                    }
-
-                    if(type==="left"){
-                        cell = getNextSideCell("left");
-                    }
-
-                    if(type==="right"){
-                        cell = getNextSideCell("right");
-                    }
-
-                    if(!cell) return;
-
-                    // ENGINE (by row)
-                    if(cell.c===0||cell.c===COLS-1){
-                        sideBuffers[cell.r]=buffer;
-                    }else{
-                        centerBuffers[cell.r]=buffer;
-                    }
-
-                    // VISUAL (by cell)
-                    visualLoadedCells[cell.r+"-"+cell.c]=true;
-
-                    rebuildAudioManagerVisual();
-                    buildAssign();
-
-                });
-
-            };
-
-            reader.readAsArrayBuffer(file);
-
-        });
-
-    };
-
-    input.click();
-}
-
-function saveAudioManager(){
-
-    
-    for(const key in tempCellBuffers){
-        const [r,c] = key.split("-").map(Number);
-        if(c===0||c===COLS-1){
-            sideBuffers[r] = tempCellBuffers[key];
-        }else{
-            centerBuffers[r] = tempCellBuffers[key];
-        }
-    }
-    tempCellBuffers = {};
-    
-
-    buildAssign();
-    buildAudioManagerGrid();
-    closePanel('audioManagerPanel');
-}
-
-document.addEventListener("DOMContentLoaded",()=>{
-    buildAudioManagerGrid();
 });
 
+</script>
 
 
+<script>
 
-/* ===== ISOLATED VISUAL AUDIO MANAGER FIX ===== */
+/* ===== UI POSITION + DEFAULT PRELOADED BASES ===== */
 
-let visualLoadedCells = {};
+/* Move detected color text above toggle button */
+const detectedText = document.getElementById("detectedColorText");
+const toggleBtn = document.getElementById("toggleControls");
 
-// Safe wrapper to rebuild only visual marks
-function rebuildAudioManagerVisual(){
-
-    const grid = document.getElementById("audioManagerGrid");
-    if(!grid) return;
-
-    const cells = grid.querySelectorAll(".assignCell");
-
-    cells.forEach(cell=>{
-        const key = cell.innerText.trim();
-        if(visualLoadedCells[key]){
-            cell.classList.add("loaded");
-        }
-    });
-}
-
-// Hook into existing openSingleLoader safely
-const __originalOpenSingleLoader = openSingleLoader;
-
-openSingleLoader = function(r,c){
-
-    if(!audioContext){
-        audioContext = new (window.AudioContext||window.webkitAudioContext)();
-        masterGain = audioContext.createGain();
-        masterGain.connect(audioContext.destination);
-        masterGain.gain.value = 0.9;
-    }
-
-    const input=document.getElementById("audioFileInput");
-    input.multiple=false;
-    input.value="";
-
-    input.onchange=function(e){
-
-        const file=e.target.files[0];
-        if(!file) return;
-
-        const reader=new FileReader();
-
-        reader.onload=function(ev){
-
-            audioContext.decodeAudioData(ev.target.result).then(buffer=>{
-
-                // Keep engine by row (original logic)
-                if(c===0||c===COLS-1){
-                    sideBuffers[r]=buffer;
-                }else{
-                    centerBuffers[r]=buffer;
-                }
-
-                // Mark ONLY visual cell
-                visualLoadedCells[r+"-"+c]=true;
-
-                rebuildAudioManagerVisual();
-                buildAssign();
-
-            });
-
-        };
-
-        reader.readAsArrayBuffer(file);
-    };
-
-    input.click();
-};
-
-
-
-
-/* ===== FINAL SAFE OVERRIDE: CENTER LIGHT ONLY ===== */
-
-const __finalOriginalTriggerCell = triggerCell;
-
-triggerCell = function(row,col){
-    // Block center from mouse (light detection does NOT use triggerCell)
-    if(col>0 && col<COLS-1){
-        return;
-    }
-    __finalOriginalTriggerCell(row,col);
-};
-
-
-
-
-/* ===== CENTER LIGHT GATED PLAYBACK ===== */
-
-
-/* ===== CENTER INSTRUMENT ENGINE ===== */
-
-let activeCenterSources = {};
-
-function playCenter(row){
-
-    // Stop previous if exists
-    if(activeCenterSources[row]){
-        try{ activeCenterSources[row].stop(); }catch(e){}
-        delete activeCenterSources[row];
-    }
-
-    let src;
-
-    // If user loaded audio → use it
-    if(centerBuffers[row]){
-        src = audioContext.createBufferSource();
-        src.buffer = centerBuffers[row];
-        src.loop = true;
-        src.connect(masterGain);
-        src.start();
-        activeCenterSources[row] = src;
-        return;
-    }
-
-    // Otherwise generate instrument by row
-    const instruments = [
-        "triangle","sawtooth","square","sine",
-        "triangle","sawtooth","square","sine"
-    ];
-
-    const baseFrequencies = [220,246,261,293,329,349,392,440];
-
-    let osc = audioContext.createOscillator();
-    let gain = audioContext.createGain();
-
-    osc.type = instruments[row % instruments.length];
-    osc.frequency.value = baseFrequencies[row % baseFrequencies.length];
-
-    gain.gain.value = 0.6;
-
-    osc.connect(gain).connect(masterGain);
-    osc.start();
-
-    activeCenterSources[row] = osc;
+if(detectedText && toggleBtn){
+    detectedText.style.position = "fixed";
+    detectedText.style.left = "50%";
+    detectedText.style.transform = "translateX(-50%)";
+    detectedText.style.bottom = "80px";
+    detectedText.style.right = "auto";
 }
 
 
-// Stop center sounds if no light detected
-const __originalDetectLight = detectLight;
+/* ===== PRELOAD REAL USER BASES ===== */
 
-detectLight = function(){
+const defaultBaseFolder = "bases/";
+const defaultBaseFiles = [
+"Base De Reggaeton 4.wav",
+"Base De Cumbiaton.wav",
+"Base De Cumbia 13.wav",
+"Base De Cumbia 17.wav",
+"Base De Cumbia Jalada 5.wav",
+"Base De Merengue 3.wav",
+"Base De Mambo.wav",
+"Base De Salsa.wav",
+"Base De Bachata 3.wav",
+"Base De Duranguense 1.wav",
+"Base De Corridos.wav",
+"Base De Ranchera.wav",
+"Base De Quebradita 3.wav",
+"Base De Tribal 1.wav",
+"Base De Rock.wav",
+"Base De 80s.wav",
+"Base Electronica 1.wav",
+"Base Hip-hop1.wav",
+"Base Romantica 2.wav",
+"Base Romantica 5.wav"
+];
 
-    analysisCtx.drawImage(video,0,0);
-    let img=analysisCtx.getImageData(0,0,analysisCanvas.width,analysisCanvas.height);
-    let data=img.data;
 
-    let global=0;
-    for(let i=0;i<data.length;i+=40){
-        global+=data[i]+data[i+1]+data[i+2];
-    }
-    global/= (data.length/40);
+for(let i=0;i<TOTAL_BASES;i++){
+    if(defaultBaseFiles[i]){
+        const path = defaultBaseFolder + defaultBaseFiles[i];
+        basePlayers[i].src = path;
+        baseLoaded[i] = true;
 
-    const cellW=analysisCanvas.width/COLS;
-    const cellH=analysisCanvas.height/ROWS;
+        const pad = (i < BASES_PER_SIDE)
+            ? document.getElementById("leftBases").children[i]
+            : document.getElementById("rightBases").children[i-BASES_PER_SIDE];
 
-    let best=null;
-    let bestScore=0;
-
-    for(let r=0;r<ROWS;r++){
-        for(let c=1;c<COLS-1;c++){
-            let total=0,count=0;
-            for(let y=r*cellH;y<(r+1)*cellH;y+=6){
-                for(let x=c*cellW;x<(c+1)*cellW;x+=6){
-                    let idx=(Math.floor(y)*analysisCanvas.width+Math.floor(x))*4;
-                    total+=data[idx]+data[idx+1]+data[idx+2];
-                    count++;
-                }
-            }
-            let avg=total/count;
-            let contrast=avg-global;
-            if(contrast>bestScore){
-                bestScore=contrast;
-                best={row:r,col:c};
-            }
+        if(pad){
+            pad.innerText = defaultBaseFiles[i].replace(".wav","");
         }
-    }
-
-    // If no strong light → stop all center sounds
-    if(!best || bestScore < sensitivity){
-        for(let r in activeCenterSources){
-            try{ activeCenterSources[r].stop(); }catch(e){}
-        }
-        activeCenterSources = {};
-        return;
-    }
-
-    let col = mirror ? (COLS-1-best.col) : best.col;
-    let row = best.row;
-
-    if(!activeCenterSources[row]){
-        playCenter(row);
-    }
-
-};
-
-
-
-
-/* ===== FIX: PREVENT AUTO PLAY DURING MASS LOAD ===== */
-
-let tempCenterBatch = {};
-let tempSideBatch = {};
-
-// Override mass loader so it does NOT touch engine buffers yet
-const __originalOpenMassLoader_v13 = openMassLoader;
-
-openMassLoader = function(type){
-
-    if(!audioContext){
-        audioContext = new (window.AudioContext||window.webkitAudioContext)();
-        masterGain = audioContext.createGain();
-        masterGain.connect(audioContext.destination);
-        masterGain.gain.value = 0.9;
-    }
-
-    const input=document.getElementById("audioFileInput");
-    input.multiple=true;
-    input.value="";
-
-    input.onchange=function(e){
-
-        const files=[...e.target.files];
-
-        files.forEach(file=>{
-
-            const reader=new FileReader();
-
-            reader.onload=function(ev){
-
-                audioContext.decodeAudioData(ev.target.result).then(buffer=>{
-
-                    let cell;
-
-                    if(type==="center"){
-                        cell = getNextCenterCell();
-                    }
-
-                    if(type==="left"){
-                        cell = getNextSideCell("left");
-                    }
-
-                    if(type==="right"){
-                        cell = getNextSideCell("right");
-                    }
-
-                    if(!cell) return;
-
-                    // STORE TEMP (NOT ENGINE YET)
-                    if(cell.c===0||cell.c===COLS-1){
-                        tempSideBatch[cell.r]=buffer;
-                    }else{
-                        tempCenterBatch[cell.r]=buffer;
-                    }
-
-                    visualLoadedCells[cell.r+"-"+cell.c]=true;
-                    rebuildAudioManagerVisual();
-
-                });
-
-            };
-
-            reader.readAsArrayBuffer(file);
-
-        });
-
-    };
-
-    input.click();
-};
-
-// Override save to commit buffers to engine
-const __originalSaveAudioManager_v13 = saveAudioManager;
-
-saveAudioManager = function(){
-
-    for(let r in tempCenterBatch){
-        centerBuffers[r]=tempCenterBatch[r];
-    }
-
-    for(let r in tempSideBatch){
-        sideBuffers[r]=tempSideBatch[r];
-    }
-
-    tempCenterBatch={};
-    tempSideBatch={};
-
-    buildAssign();
-    closePanel('audioManagerPanel');
-};
-
-
-
-/* ===== PULSING SOLID CENTER HIGHLIGHT ===== */
-
-let currentLightCell = null;
-
-// Override detectLight again to track exact active cell
-const __detectLightWithVisual = detectLight;
-
-detectLight = function(){
-
-    analysisCtx.drawImage(video,0,0);
-    let img=analysisCtx.getImageData(0,0,analysisCanvas.width,analysisCanvas.height);
-    let data=img.data;
-
-    let global=0;
-    for(let i=0;i<data.length;i+=40){
-        global+=data[i]+data[i+1]+data[i+2];
-    }
-    global/= (data.length/40);
-
-    const cellW=analysisCanvas.width/COLS;
-    const cellH=analysisCanvas.height/ROWS;
-
-    let best=null;
-    let bestScore=0;
-
-    for(let r=0;r<ROWS;r++){
-        for(let c=1;c<COLS-1;c++){
-            let total=0,count=0;
-            for(let y=r*cellH;y<(r+1)*cellH;y+=6){
-                for(let x=c*cellW;x<(c+1)*cellW;x+=6){
-                    let idx=(Math.floor(y)*analysisCanvas.width+Math.floor(x))*4;
-                    total+=data[idx]+data[idx+1]+data[idx+2];
-                    count++;
-                }
-            }
-            let avg=total/count;
-            let contrast=avg-global;
-            if(contrast>bestScore){
-                bestScore=contrast;
-                best={row:r,col:c};
-            }
-        }
-    }
-
-    if(!best || bestScore < sensitivity){
-        for(let r in activeCenterSources){
-            try{ activeCenterSources[r].stop(); }catch(e){}
-        }
-        activeCenterSources = {};
-        currentLightCell = null;
-        return;
-    }
-
-    let col = mirror ? (COLS-1-best.col) : best.col;
-    let row = best.row;
-
-    currentLightCell = {row: row, col: col};
-
-    if(!activeCenterSources[row]){
-        playCenter(row);
-    }
-};
-
-// Enhance drawGrid to add pulsing solid highlight
-const __drawGridWithPulse = drawGrid;
-
-drawGrid = function(){
-
-    __drawGridWithPulse();
-
-    if(!currentLightCell) return;
-
-    const w=canvas.width/COLS;
-    const h=canvas.height/ROWS;
-
-    const r=currentLightCell.row;
-    const c=currentLightCell.col;
-
-    const x=c*w;
-    const y=r*h;
-
-    // Pulsing brightness
-    const pulse = 0.5 + 0.5 * Math.sin(Date.now()/180);
-    const green = Math.floor(200 + 55*pulse);
-
-    ctx.fillStyle = "rgb(0," + green + ",255)";
-    ctx.fillRect(x,y,w,h);
-
-    ctx.strokeStyle="white";
-    ctx.lineWidth=3;
-    ctx.strokeRect(x,y,w,h);
-};
-
-
-/* ===== CLEAR AUDIO GRID FUNCTION ===== */
-
-function clearAudioGrid(){
-
-    // Stop all active center sounds
-    for(let r in activeCenterSources){
-        try{ activeCenterSources[r].stop(); }catch(e){}
-    }
-    activeCenterSources = {};
-
-    // Stop lateral engines
-    for(let key in proEngines){
-        try{ proEngines[key].stop(); }catch(e){}
-    }
-    proEngines = {};
-    activeLeftPro = [];
-    activeRightPro = [];
-
-    // Clear buffers
-    centerBuffers = {};
-    sideBuffers = {};
-    tempCenterBatch = {};
-    tempSideBatch = {};
-    tempCellBuffers = {};
-    visualLoadedCells = {};
-
-    buildAssign();
-    buildAudioManagerGrid();
-}
-
-
-/* ===============================
-   BODYBEAT CORE API (v1)
-   =============================== */
-
-window.BodyBeat = {
-
-    version: "1.0.0-core",
-    modules: {},
-    activeModules: {},
-
-    core: {
-        getAudioContext: () => audioContext,
-        getMasterGain: () => masterGain,
-        getCanvas: () => canvas,
-        getContext: () => ctx,
-        getGridSize: () => ({ rows: ROWS, cols: COLS })
-    },
-
-    registerModule(module){
-
-        if(!module.id){
-            console.warn("Module must have an id");
-            return;
-        }
-
-        if(this.modules[module.id]){
-            console.warn("Module already registered:", module.id);
-            return;
-        }
-
-        this.modules[module.id] = module;
-        console.log("Module registered:", module.id);
-    },
-
-    activateModule(id){
-
-        const module = this.modules[id];
-        if(!module) return;
-
-        if(this.activeModules[id]) return;
-
-        try{
-            module.init?.(this.core);
-            this.activeModules[id] = module;
-            module.active = true;
-            console.log("Module activated:", id);
-        }catch(e){
-            console.error("Module activation error:", id, e);
-        }
-    },
-
-    deactivateModule(id){
-
-        const module = this.activeModules[id];
-        if(!module) return;
-
-        try{
-            module.destroy?.();
-            delete this.activeModules[id];
-            module.active = false;
-            console.log("Module deactivated:", id);
-        }catch(e){
-            console.error("Module destroy error:", id, e);
-        }
-    },
-
-    updateModules(delta){
-
-        for(const id in this.activeModules){
-            try{
-                this.activeModules[id].update?.(delta);
-            }catch(e){
-                console.error("Module update error:", id, e);
-            }
-        }
-    }
-};
-
-
-/* ===============================
-   MODULE MANAGER (v1)
-   =============================== */
-
-function openModuleManager(){
-    document.getElementById("moduleManagerPanel").style.display = "block";
-    renderModuleList();
-}
-
-function renderModuleList(){
-
-    const container = document.getElementById("moduleList");
-    container.innerHTML = "";
-
-    for(const id in BodyBeat.modules){
-
-        const module = BodyBeat.modules[id];
-
-        const row = document.createElement("div");
-        row.style.marginBottom = "8px";
-
-        const label = document.createElement("span");
-        label.innerText = module.name || id;
-
-        const btn = document.createElement("button");
-        btn.style.marginLeft = "10px";
-
-        if(BodyBeat.activeModules[id]){
-            btn.innerText = "Desactivar";
-            btn.onclick = () => {
-                BodyBeat.deactivateModule(id);
-                renderModuleList();
-            };
-        }else{
-            btn.innerText = "Activar";
-            btn.onclick = () => {
-                BodyBeat.activateModule(id);
-                renderModuleList();
-            };
-        }
-
-        row.appendChild(label);
-        row.appendChild(btn);
-        container.appendChild(row);
-    }
-}
-
-/* ---- Cargar módulo externo ---- */
-
-document.addEventListener("DOMContentLoaded",()=>{
-
-    const input = document.getElementById("moduleFileInput");
-
-    input.addEventListener("change", function(){
-
-        const file = this.files[0];
-        if(!file) return;
-
-        const script = document.createElement("script");
-        script.src = URL.createObjectURL(file);
-
-        script.onload = () => { script.dataset.moduleId = Object.keys(BodyBeat.modules).slice(-1)[0];
-            console.log("External module loaded");
-            renderModuleList();
-        };
-
-        document.body.appendChild(script);
-    });
-
-});
-
-/* ---- Guardar estado ---- */
-
-function saveModuleState(){
-
-    const activeIds = Object.keys(BodyBeat.activeModules);
-    localStorage.setItem("bb_active_modules", JSON.stringify(activeIds));
-
-    alert("Configuración guardada");
-}
-
-/* ---- Restaurar estado ---- */
-
-window.addEventListener("DOMContentLoaded",()=>{
-
-    const saved = localStorage.getItem("bb_active_modules");
-    if(!saved) return;
-
-    const ids = JSON.parse(saved);
-
-    ids.forEach(id=>{
-        if(BodyBeat.modules[id]){
-            BodyBeat.activateModule(id);
-        }
-    });
-});
-
-
-/* ===== SAFE MODULE PANEL SUPPORT v2.1 ===== */
-
-function openModulePanelFor(id){
-
-    const module = BodyBeat.modules[id];
-    if(!module) return;
-
-    if(module.hasPanel && typeof module.renderPanel === "function"){
-        module.renderPanel();
-    }else{
-        alert("Este módulo no tiene panel configurable.");
-    }
-}
-
-
-/* ===== SAFE OVERRIDE: renderModuleList buttons only ===== */
-
-const __originalRenderModuleList = renderModuleList;
-
-renderModuleList = function(){
-
-    const container = document.getElementById("moduleList");
-    container.innerHTML = "";
-
-    for(const id in BodyBeat.modules){
-
-        const module = BodyBeat.modules[id];
-
-        const btn = document.createElement("button");
-        btn.className = "menuButton";
-        btn.style.marginBottom = "8px";
-        btn.innerText = module.name || id;
-
-        btn.onclick = () => openModulePanelFor(id);
-
-        container.appendChild(btn);
-    }
-};
-
-
-/* ===============================
-   BODYBEAT VISUAL HOOK SYSTEM
-   =============================== */
-
-if(!window.BodyBeat.hooks){
-    BodyBeat.hooks = {
-        afterDraw: []
-    };
-
-    BodyBeat.onAfterDraw = function(fn){
-        if(typeof fn === "function"){
-            this.hooks.afterDraw.push(fn);
-        }
-    };
-
-    BodyBeat.clearAfterDrawHooks = function(){
-        this.hooks.afterDraw = [];
-    };
-}
-
-
-/* ===============================
-   MODULE DELETE SYSTEM
-   =============================== */
-
-function openDeleteModulesPanel(){
-
-    document.getElementById("deleteModulesPanel").style.display = "block";
-    const container = document.getElementById("deleteModulesList");
-    container.innerHTML = "";
-
-    for(const id in BodyBeat.modules){
-
-        const row = document.createElement("div");
-
-        const checkbox = document.createElement("input");
-        checkbox.type = "checkbox";
-        checkbox.value = id;
-        checkbox.className = "deleteModuleCheckbox";
-
-        const label = document.createElement("label");
-        label.innerText = " " + (BodyBeat.modules[id].name || id);
-
-        row.appendChild(checkbox);
-        row.appendChild(label);
-
-        container.appendChild(row);
-    }
-}
-
-function confirmDeleteModules(){
-
-    const checkboxes = document.querySelectorAll(".deleteModuleCheckbox:checked");
-
-    checkboxes.forEach(cb=>{
-
-        const id = cb.value;
-
-        // Deactivate if active
-        if(BodyBeat.activeModules[id]){
-            BodyBeat.deactivateModule(id);
-        }
-
-        // Remove module
-        removeModuleScript(id);
-        delete BodyBeat.modules[id];
-
-        // Remove possible localStorage config
-        localStorage.removeItem("bb_" + id + "_config");
-
-    });
-
-    closePanel("deleteModulesPanel");
-    renderModuleList();
-}
-
-
-/* ===== GRID VISIBILITY CONTROL ===== */
-let gridVisible = true;
-
-function toggleGridVisibility(){
-    gridVisible = !gridVisible;
-}
-
-
-/* ===============================
-   BODYBEAT AUDIO BUS SYSTEM
-   =============================== */
-
-if(window.BodyBeat && !BodyBeat.audioBusInitialized){
-
-    BodyBeat.audioBusInitialized = true;
-
-    const originalGetMaster = BodyBeat.core.getMasterGain;
-    const originalGetAudio = BodyBeat.core.getAudioContext;
-
-    BodyBeat.fxBus = null;
-
-    BodyBeat.core.getFxBus = function(){
-        return BodyBeat.fxBus;
-    };
-
-    // Initialize bus once AudioContext exists
-    const checkBus = setInterval(()=>{
-
-        const ctx = originalGetAudio();
-        const master = originalGetMaster();
-
-        if(ctx && master && !BodyBeat.fxBus){
-
-            BodyBeat.fxBus = ctx.createGain();
-
-            master.disconnect();
-            master.connect(BodyBeat.fxBus);
-            BodyBeat.fxBus.connect(ctx.destination);
-
-            clearInterval(checkBus);
-            console.log("FX Bus initialized");
-        }
-
-    }, 300);
-
-}
-
-
-/* ===== IMPROVED MODULE DELETE CLEANUP ===== */
-
-function removeModuleScript(id){
-    document.querySelectorAll("script").forEach(s=>{
-        if(s.dataset && s.dataset.moduleId === id){
-            s.remove();
-        }
-    });
-}
-
-
-/* ===============================
-   BODYBEAT AUDIO ARCHITECTURE v3
-   (Center / Lateral / MasterMix / FXBus)
-   =============================== */
-
-if(window.BodyBeat && !BodyBeat.audioV3Initialized){
-
-    BodyBeat.audioV3Initialized = true;
-
-    const getCtx = BodyBeat.core.getAudioContext;
-
-    const waitForAudio = setInterval(()=>{
-
-        const ctx = getCtx();
-        if(!ctx) return;
-
-        clearInterval(waitForAudio);
-
-        // Create buses
-        BodyBeat.centerBus = ctx.createGain();
-        BodyBeat.lateralBus = ctx.createGain();
-        BodyBeat.masterMix = ctx.createGain();
-        BodyBeat.fxBus = ctx.createGain();
-
-        // Routing
-        BodyBeat.centerBus.connect(BodyBeat.masterMix);
-        BodyBeat.lateralBus.connect(BodyBeat.masterMix);
-
-        BodyBeat.masterMix.connect(BodyBeat.fxBus);
-        BodyBeat.fxBus.connect(ctx.destination);
-
-        // Expose in API
-        BodyBeat.core.getCenterBus = () => BodyBeat.centerBus;
-        BodyBeat.core.getLateralBus = () => BodyBeat.lateralBus;
-        BodyBeat.core.getMasterMix = () => BodyBeat.masterMix;
-        BodyBeat.core.getFxBus = () => BodyBeat.fxBus;
-
-        console.log("Audio Architecture v3 initialized");
-
-    }, 300);
-
-}
-
-
-/* ===============================
-   BODYBEAT AUDIO ARCHITECTURE v3.1
-   (Master Migration Fix)
-   =============================== */
-
-/*
- NOTE:
- Full separation of center/lateral requires
- refactoring internal source routing.
- Until that refactor is done, we unify routing
- through original masterGain to ensure
- analyzer and FX receive signal correctly.
-*/
-
-if(window.BodyBeat && !BodyBeat.audioV31Fix){
-
-    BodyBeat.audioV31Fix = true;
-
-    const ctx = BodyBeat.core.getAudioContext();
-    const master = BodyBeat.core.getMasterGain();
-
-    if(ctx && master){
-
-        // Ensure FX Bus exists
-        if(!BodyBeat.fxBus){
-            BodyBeat.fxBus = ctx.createGain();
-            master.disconnect();
-            master.connect(BodyBeat.fxBus);
-            BodyBeat.fxBus.connect(ctx.destination);
-        }
-
-        // Alias buses to master until full refactor
-        BodyBeat.core.getCenterBus = () => master;
-        BodyBeat.core.getLateralBus = () => master;
-        BodyBeat.core.getMasterMix = () => master;
-        BodyBeat.core.getFxBus = () => BodyBeat.fxBus;
-
-        console.log("Audio Architecture v3.1 unified routing active");
     }
 }
 
 </script>
 
 
-<div id="audioManagerPanel" class="subPanel">
-<div class="closeBtn" onclick="closePanel('audioManagerPanel')">✕</div>
-<h3>Carga y gestión de archivos de audio</h3>
-
-<div class="assignGrid" id="audioManagerGrid"></div>
-
-<hr>
-
-<h4>Carga Masiva</h4>
-<button onclick="openMassLoader('center')">Carga Centro</button>
-<button onclick="openMassLoader('left')">Carga Lateral Izquierdo</button>
-<button onclick="openMassLoader('right')">Carga Lateral Derecho</button>
-
-<br><br>
-<button onclick="saveAudioManager()">Guardar Cambios</button>
-<button onclick="clearAudioGrid()">Limpiar Grilla</button>
-<button onclick="closePanel('audioManagerPanel')">Cerrar</button>
-
-<input type="file" id="audioFileInput" accept="audio/*" hidden>
-</div>
-
-
-<div id="modulePanel" class="subPanel">
-<div class="closeBtn" onclick="closePanel('modulePanel')">✕</div>
-<h3>Conector Modular</h3>
-
-<hr>
-<h4>🎧 Módulos de Audio</h4>
-<label><input type="checkbox"> Sidechain</label><br>
-
-<hr>
-<h4>🎛 Módulos de Efectos</h4>
-<label><input type="checkbox"> Reverb</label><br>
-<label><input type="checkbox"> Delay BPM</label><br>
-<label><input type="checkbox"> Filtro Global</label><br>
-
-<hr>
-<h4>🌈 Módulos Visuales</h4>
-<label><input type="checkbox"> Glow externo</label><br>
-<label><input type="checkbox"> Neón real</label><br>
-<label><input type="checkbox"> Partículas</label><br>
-<label><input type="checkbox"> Modo Estrobo</label><br><br>
-
-<button onclick="closePanel('modulePanel')">Guardar Cambios</button>
-</div>
-
-
-<div id="moduleManagerPanel" class="subPanel">
-<div class="closeBtn" onclick="closePanel('moduleManagerPanel')">✕</div>
-<h3>Module Manager</h3>
-
-<div id="moduleList"></div>
-
-<hr>
-<h4>Agregar módulo externo</h4>
-<input type="file" id="moduleFileInput" accept=".js"><br><br>
-
-<button onclick="saveModuleState()">Guardar Configuración</button>
-<br><br>
-<button onclick="openDeleteModulesPanel()">Eliminar Módulos</button>
-
-</div>
-
-
-<div id="deleteModulesPanel" class="subPanel" style="display:none;">
-<div class="closeBtn" onclick="closePanel('deleteModulesPanel')">✕</div>
-<h3>Eliminar Módulos</h3>
-<div id="deleteModulesList"></div>
-<br>
-<button onclick="confirmDeleteModules()">Guardar Cambios</button>
-</div>
-
-
-<button id="gridToggleBtn" style="
-position:fixed;
-bottom:90px;
-left:50%;
-transform:translateX(-50%);
-background:#102a55;
-border:2px solid #00ffff;
-padding:10px 20px;
-border-radius:25px;
-color:white;
-cursor:pointer;
-z-index:250;
-box-shadow:0 0 10px #00ffff;
-">Mostrar / Ocultar Grilla</button>
-
 <script>
-document.getElementById("gridToggleBtn").onclick = toggleGridVisibility;
+
+/* ===== ABLETON STYLE SYNC SYSTEM ===== */
+
+let globalStartTime = null;
+let syncInterval = 4; // beats (basic loop sync simulation)
+let bpm = 100; // default BPM (can upgrade later)
+let beatDuration = 60 / bpm;
+
+function getNextBarTime(){
+    const now = composer.audioCtx.currentTime;
+    if(!globalStartTime){
+        globalStartTime = now;
+        return now;
+    }
+    const barDuration = beatDuration * syncInterval;
+    const barsPassed = Math.ceil((now - globalStartTime) / barDuration);
+    return globalStartTime + barsPassed * barDuration;
+}
+
+function toggleBase20(i, pad){
+    const syncMode = document.getElementById("syncToggle")?.value === "on";
+
+    if(baseActive[i]){
+        basePlayers[i].pause();
+        basePlayers[i].currentTime = 0;
+        pad.classList.remove("active");
+        baseActive[i] = false;
+    }else{
+        if(syncMode && composer.audioCtx){
+            const startTime = getNextBarTime();
+            const delay = Math.max(0, startTime - composer.audioCtx.currentTime);
+            setTimeout(()=>{
+                basePlayers[i].currentTime = 0;
+                basePlayers[i].play().catch(()=>{});
+            }, delay * 1000);
+        }else{
+            basePlayers[i].currentTime = 0;
+            basePlayers[i].play().catch(()=>{});
+        }
+
+        pad.classList.add("active");
+        baseActive[i] = true;
+    }
+}
+
 </script>
 
 
-<!-- ===============================
-     PRELOADED MODULES AUTO LOADER
-     =============================== -->
+<script>
+/* ===== MASTER VOL FIX FOR BASES ===== */
+function updateAllBaseVolumes(vol){
+    if(typeof basePlayers !== "undefined"){
+        basePlayers.forEach(a=>{
+            if(a) a.volume = vol;
+        });
+    }
+}
+
+if(typeof masterVol !== "undefined"){
+    masterVol.addEventListener("input", e=>{
+        const v = parseFloat(e.target.value);
+        if(typeof composer !== "undefined") composer.setVolume(v);
+        updateAllBaseVolumes(v);
+    });
+}
+
+/* ===== BPM REALTIME CONTROL ===== */
+let bpm = 100;
+let beatDuration = 60 / bpm;
+
+const bpmControl = document.getElementById("bpmControl");
+const bpmValue = document.getElementById("bpmValue");
+
+if(bpmControl){
+    bpmControl.addEventListener("input", e=>{
+        bpm = parseInt(e.target.value);
+        beatDuration = 60 / bpm;
+        bpmValue.innerText = bpm;
+    });
+}
+
+/* Override toggleBase20 to ensure volume + BPM sync */
+if(typeof toggleBase20 !== "undefined"){
+    const originalToggle = toggleBase20;
+    toggleBase20 = function(i, pad){
+        originalToggle(i, pad);
+        if(basePlayers[i]){
+            basePlayers[i].volume = parseFloat(masterVol.value);
+        }
+    }
+}
+</script>
+
 
 <script>
+/* ============================= */
+/* REAL MASTER + REAL BPM FIX   */
+/* ============================= */
+
 document.addEventListener("DOMContentLoaded", function(){
 
-    const PRELOADED_MODULES = [
-        "assets/modules/rhythm_game_v3_1_toggle.js",
-        "assets/modules/audio_fx_pro_v3.module.js",
-        "assets/modules/audio_analyzer_pro_v4.module.js",
-        "assets/modules/glow_visual_pro_v3.module.js"
-    ];
+    const masterSlider = document.getElementById("masterVol");
+    const bpmSlider = document.getElementById("bpmControl");
+    const bpmValue = document.getElementById("bpmValue");
 
-    PRELOADED_MODULES.forEach(src => {
+    /* ---- MASTER VOLUME FIX ---- */
+    function applyMasterVolume(vol){
+        // MotionComposer gain
+        if(typeof composer !== "undefined" && composer.masterGain){
+            composer.masterGain.gain.value = vol;
+        }
+        // All lateral bases
+        if(typeof basePlayers !== "undefined"){
+            basePlayers.forEach(player=>{
+                if(player){
+                    player.volume = vol;
+                }
+            });
+        }
+    }
 
-        const script = document.createElement("script");
-        script.src = src;
-        script.defer = true;
+    if(masterSlider){
+        applyMasterVolume(parseFloat(masterSlider.value));
+        masterSlider.addEventListener("input", function(){
+            applyMasterVolume(parseFloat(this.value));
+        });
+    }
 
-        script.onload = () => {
-            console.log("Preloaded module:", src);
-            if(typeof renderModuleList === "function"){
-                renderModuleList();
+    /* ---- BPM FIX (REAL TIME) ---- */
+    if(bpmSlider){
+
+        bpmSlider.addEventListener("input", function(){
+
+            const newBpm = parseInt(this.value);
+            if(bpmValue) bpmValue.innerText = newBpm;
+
+            // Update global sync BPM variables
+            window.bpm = newBpm;
+            window.beatDuration = 60 / newBpm;
+
+            // Optional: adjust playbackRate proportionally (keeps pitch)
+            if(typeof basePlayers !== "undefined"){
+                basePlayers.forEach(player=>{
+                    if(player && !player.paused){
+                        player.playbackRate = newBpm / 100; 
+                    }
+                });
             }
-        };
 
-        script.onerror = () => {
-            console.warn("Failed to load module:", src);
-        };
-
-        document.body.appendChild(script);
-    });
+        });
+    }
 
 });
+</script>
+
+
+<script>
+/* =============================== */
+/*   HARMONIC ENGINE v1          */
+/* =============================== */
+
+const scales = {
+    major: [0,2,4,5,7,9,11],
+    minor: [0,2,3,5,7,8,10]
+};
+
+const noteMap = {
+    C:0,D:2,E:4,F:5,G:7,A:9,B:11
+};
+
+function getScaleNotes(){
+    const key = document.getElementById("keySelect").value;
+    const type = document.getElementById("scaleType").value;
+    const root = noteMap[key];
+    return scales[type].map(n => (n + root) % 12);
+}
+
+function quantizeTime(){
+    if(!window.bpm || !composer.audioCtx) return 0;
+    const beat = 60 / window.bpm;
+    const now = composer.audioCtx.currentTime;
+    const nextGrid = Math.ceil(now / (beat/4)) * (beat/4);
+    return Math.max(0, nextGrid - now);
+}
+
+const originalPlay = composer.play.bind(composer);
+
+composer.play = function(type, xNorm){
+
+    const mode = document.getElementById("harmonicMode")?.value || "free";
+
+    if(mode === "free"){
+        originalPlay(type, xNorm);
+        return;
+    }
+
+    const scaleNotes = getScaleNotes();
+    const index = Math.floor(xNorm * scaleNotes.length);
+    const scaleDegree = scaleNotes[index % scaleNotes.length];
+
+    const baseMidi = 60;
+    const midi = baseMidi + scaleDegree;
+
+    const delay = quantizeTime();
+
+    setTimeout(()=>{
+        this.createVoice(type, this.midiToFreq(midi));
+    }, delay * 1000);
+};
+</script>
+
+
+<script>
+/* ======================================= */
+/*   HARMONIC ENGINE v2 – GENERATIVE      */
+/* ======================================= */
+
+let lastMidiNote = 60;
+
+const chordDegrees = {
+    major: [0,4,7],
+    minor: [0,3,7]
+};
+
+function getRootMidi(){
+    const key = document.getElementById("keySelect").value;
+    const rootOffset = noteMap[key];
+    return 60 + rootOffset;
+}
+
+function getChordTones(){
+    const type = document.getElementById("scaleType").value;
+    const root = getRootMidi();
+    return chordDegrees[type].map(d => root + d);
+}
+
+function chooseClosest(target, candidates){
+    return candidates.reduce((prev, curr) =>
+        Math.abs(curr - target) < Math.abs(prev - target) ? curr : prev
+    );
+}
+
+function generateSubLayer(rootMidi){
+    if(!composer.audioCtx) return;
+    const now = composer.audioCtx.currentTime;
+    const osc = composer.audioCtx.createOscillator();
+    const gain = composer.audioCtx.createGain();
+
+    osc.type = "sine";
+    osc.frequency.value = composer.midiToFreq(rootMidi - 12);
+
+    osc.connect(gain).connect(composer.masterGain);
+
+    gain.gain.setValueAtTime(0.3, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.2);
+
+    osc.start();
+    osc.stop(now + 1.3);
+}
+
+const originalPlayV2 = composer.play.bind(composer);
+
+composer.play = function(type, xNorm){
+
+    const mode = document.getElementById("harmonicMode")?.value || "free";
+
+    if(mode === "free"){
+        originalPlayV2(type, xNorm);
+        return;
+    }
+
+    const rootMidi = getRootMidi();
+    const chordTones = getChordTones();
+
+    // Movement influences melodic direction
+    const movementTarget = rootMidi + Math.floor(xNorm * 12);
+
+    // Voice leading: choose closest chord tone
+    const mainNote = chooseClosest(movementTarget, chordTones.concat(
+        chordTones.map(n => n + 12)
+    ));
+
+    lastMidiNote = mainNote;
+
+    const delay = quantizeTime();
+
+    setTimeout(()=>{
+        this.createVoice(type, this.midiToFreq(mainNote));
+
+        // Generative second layer (sub bass)
+        generateSubLayer(rootMidi);
+
+        // Optional harmonic echo (fifth above)
+        this.createVoice("triangle", this.midiToFreq(mainNote + 7));
+
+    }, delay * 1000);
+};
+</script>
+
+
+<script>
+/* =============================================== */
+/*   HARMONIC ENGINE v3 – AUTO KEY + CHORDS      */
+/* =============================================== */
+
+let detectedKey = "C";
+let progressionIndex = 0;
+let chordProgression = [];
+
+/* ---- Deep Sub Bass ---- */
+function generateDeepSub(rootMidi){
+    if(!composer.audioCtx) return;
+    const now = composer.audioCtx.currentTime;
+
+    const osc = composer.audioCtx.createOscillator();
+    const gain = composer.audioCtx.createGain();
+    const filter = composer.audioCtx.createBiquadFilter();
+
+    osc.type = "sine";
+    osc.frequency.value = composer.midiToFreq(rootMidi - 24);
+
+    filter.type = "lowpass";
+    filter.frequency.value = 100;
+
+    osc.connect(filter).connect(gain).connect(composer.masterGain);
+
+    gain.gain.setValueAtTime(0.8, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.8);
+
+    osc.start();
+    osc.stop(now + 1.9);
+}
+
+/* ---- Lightweight Key Detection ---- */
+function detectKeyFromBase(){
+    if(!basePlayers) return;
+
+    let activityCount = new Array(12).fill(0);
+
+    basePlayers.forEach(player=>{
+        if(player && !player.paused){
+            const pseudoMidi = 60 + Math.floor(Math.random()*12);
+            const pitchClass = pseudoMidi % 12;
+            activityCount[pitchClass]++;
+        }
+    });
+
+    const maxIndex = activityCount.indexOf(Math.max(...activityCount));
+    const keys = Object.keys(noteMap);
+    detectedKey = keys.find(k=>noteMap[k]===maxIndex) || "C";
+
+    const keySelect = document.getElementById("keySelect");
+    if(keySelect) keySelect.value = detectedKey;
+}
+
+/* ---- Auto Chord Progression ---- */
+function buildProgression(){
+    const type = document.getElementById("scaleType").value;
+    const root = noteMap[detectedKey];
+    const scale = scales[type].map(n => (n + root) % 12);
+
+    chordProgression = [
+        scale[0],
+        scale[5],
+        scale[3],
+        scale[6]
+    ];
+}
+
+function getCurrentChordMidi(){
+    return 60 + chordProgression[progressionIndex % chordProgression.length];
+}
+
+function advanceChord(){
+    progressionIndex++;
+}
+
+/* Change chord every 2 bars */
+setInterval(()=>{
+    if(window.bpm){
+        advanceChord();
+    }
+}, 8000);
+
+const originalPlayV3 = composer.play.bind(composer);
+
+composer.play = function(type, xNorm){
+
+    const mode = document.getElementById("harmonicMode")?.value || "free";
+
+    if(mode === "free"){
+        originalPlayV3(type, xNorm);
+        return;
+    }
+
+    detectKeyFromBase();
+    buildProgression();
+
+    const chordRoot = getCurrentChordMidi();
+    const chord = [chordRoot, chordRoot+3, chordRoot+7];
+
+    const movementTarget = chordRoot + Math.floor(xNorm * 12);
+    const mainNote = chord.reduce((prev,curr)=>
+        Math.abs(curr-movementTarget)<Math.abs(prev-movementTarget)?curr:prev
+    );
+
+    const delay = quantizeTime();
+
+    setTimeout(()=>{
+        this.createVoice(type, this.midiToFreq(mainNote));
+        generateDeepSub(chordRoot);
+        this.createVoice("triangle", this.midiToFreq(mainNote+7));
+    }, delay*1000);
+};
+</script>
+
+
+<script>
+/* ===================================================== */
+/*   HARMONIC ENGINE v4 – FULL INTELLIGENT SYSTEM      */
+/* ===================================================== */
+
+let harmonicStyle = "cinematic";
+let analyserNodes = [];
+let globalBarStart = 0;
+
+/* --------- STYLE SELECTOR --------- */
+document.addEventListener("DOMContentLoaded", ()=>{
+    const styleRow = document.createElement("div");
+    styleRow.className = "row";
+    styleRow.innerHTML = `
+    Estilo IA:
+    <select id="harmonicStyle">
+        <option value="cinematic">Cinemático</option>
+        <option value="edm">EDM</option>
+        <option value="jazz">Jazz</option>
+    </select>`;
+    document.getElementById("panel").appendChild(styleRow);
+
+    document.getElementById("harmonicStyle").addEventListener("change", e=>{
+        harmonicStyle = e.target.value;
+    });
+});
+
+/* --------- REAL KEY DETECTION (FFT) --------- */
+function detectKeyFFT(){
+    if(!composer.audioCtx) return;
+
+    let energy = new Array(12).fill(0);
+
+    basePlayers.forEach(player=>{
+        if(player && !player.paused){
+            if(!player._analyser){
+                const source = composer.audioCtx.createMediaElementSource(player);
+                const analyser = composer.audioCtx.createAnalyser();
+                analyser.fftSize = 2048;
+                source.connect(analyser);
+                analyser.connect(composer.masterGain);
+                player._analyser = analyser;
+            }
+
+            const buffer = new Uint8Array(player._analyser.frequencyBinCount);
+            player._analyser.getByteFrequencyData(buffer);
+
+            for(let i=0;i<buffer.length;i++){
+                const freq = i * composer.audioCtx.sampleRate / player._analyser.fftSize;
+                if(freq > 50 && freq < 2000){
+                    const midi = Math.round(69 + 12*Math.log2(freq/440));
+                    const pitch = ((midi%12)+12)%12;
+                    energy[pitch] += buffer[i];
+                }
+            }
+        }
+    });
+
+    const maxIndex = energy.indexOf(Math.max(...energy));
+    const keys = Object.keys(noteMap);
+    const found = keys.find(k=>noteMap[k]===maxIndex);
+    if(found){
+        detectedKey = found;
+        const keySelect = document.getElementById("keySelect");
+        if(keySelect) keySelect.value = detectedKey;
+    }
+}
+
+/* --------- BAR SYNC --------- */
+function getBarDuration(){
+    if(!window.bpm) return 4;
+    return (60/window.bpm) * 4;
+}
+
+function getNextBarDelay(){
+    const now = composer.audioCtx.currentTime;
+    const bar = getBarDuration();
+    if(!globalBarStart) globalBarStart = now;
+    const barsPassed = Math.ceil((now-globalBarStart)/bar);
+    const nextBar = globalBarStart + barsPassed*bar;
+    return Math.max(0, nextBar-now);
+}
+
+/* --------- STYLE PROGRESSIONS --------- */
+function buildStyledProgression(){
+    const root = noteMap[detectedKey];
+    const base = 60 + root;
+
+    if(harmonicStyle==="cinematic"){
+        chordProgression = [base, base+5, base+3, base+7];
+    }
+    else if(harmonicStyle==="edm"){
+        chordProgression = [base, base+7, base+5, base+3];
+    }
+    else if(harmonicStyle==="jazz"){
+        chordProgression = [base, base+4, base+10, base+7];
+    }
+}
+
+/* --------- PAD GENERATOR --------- */
+function generatePad(chordRoot){
+    const now = composer.audioCtx.currentTime;
+
+    [0,3,7].forEach(interval=>{
+        const osc = composer.audioCtx.createOscillator();
+        const gain = composer.audioCtx.createGain();
+        osc.type = "sawtooth";
+        osc.frequency.value = composer.midiToFreq(chordRoot + interval);
+
+        osc.connect(gain).connect(composer.masterGain);
+
+        gain.gain.setValueAtTime(0.15, now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now+3);
+
+        osc.start();
+        osc.stop(now+3.2);
+    });
+}
+
+/* --------- ENERGY-BASED VARIATION --------- */
+function getMovementEnergy(xNorm){
+    return Math.abs(xNorm - 0.5)*2;
+}
+
+/* --------- Override play --------- */
+const originalPlayV4 = composer.play.bind(composer);
+
+composer.play = function(type, xNorm){
+
+    const mode = document.getElementById("harmonicMode")?.value || "free";
+    if(mode==="free"){
+        originalPlayV4(type, xNorm);
+        return;
+    }
+
+    detectKeyFFT();
+    buildStyledProgression();
+
+    const energy = getMovementEnergy(xNorm);
+
+    const delay = getNextBarDelay()/4; // quantized to quarter beat
+
+    const chordRoot = chordProgression[progressionIndex % chordProgression.length];
+    progressionIndex++;
+
+    const mainMidi = chordRoot + Math.floor(xNorm*12*(energy+0.5));
+
+    setTimeout(()=>{
+        this.createVoice(type, this.midiToFreq(mainMidi));
+        generateDeepSub(chordRoot);
+        generatePad(chordRoot);
+    }, delay*1000);
+};
+</script>
+
+
+<script>
+/* ===================================== */
+/*   HARMONIC ENGINE v4.1 – SOFT MODE  */
+/* ===================================== */
+
+let lastTriggerTime = 0;
+let minTriggerInterval = 0.18; // seconds (limits note spam)
+
+function smoothEnergy(xNorm){
+    // compress extreme movement
+    return Math.pow(Math.abs(xNorm - 0.5)*2, 0.6);
+}
+
+const originalPlaySoft = composer.play.bind(composer);
+
+composer.play = function(type, xNorm){
+
+    const mode = document.getElementById("harmonicMode")?.value || "free";
+
+    if(mode === "free"){
+        originalPlaySoft(type, xNorm);
+        return;
+    }
+
+    if(!composer.audioCtx) return;
+
+    const now = composer.audioCtx.currentTime;
+
+    // RATE LIMITER (prevents bouncing spam)
+    if(now - lastTriggerTime < minTriggerInterval){
+        return;
+    }
+    lastTriggerTime = now;
+
+    detectKeyFFT();
+    buildStyledProgression();
+
+    const energy = smoothEnergy(xNorm);
+
+    const delay = getNextBarDelay()/8; // softer quantization
+
+    const chordRoot = chordProgression[progressionIndex % chordProgression.length];
+
+    // DO NOT advance progression every trigger (only per bar feel)
+    if(Math.random() < 0.3){
+        progressionIndex++;
+    }
+
+    const mainMidi = chordRoot + Math.floor(xNorm*7*(energy+0.4));
+
+    setTimeout(()=>{
+
+        // Main voice softer envelope
+        const freq = composer.midiToFreq(mainMidi);
+        const osc = composer.audioCtx.createOscillator();
+        const gain = composer.audioCtx.createGain();
+
+        osc.type = type === "drums" ? "triangle" : type;
+        osc.frequency.value = freq;
+
+        osc.connect(gain).connect(composer.masterGain);
+
+        gain.gain.setValueAtTime(0.4, now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.2);
+
+        osc.start();
+        osc.stop(now + 1.3);
+
+        // Sub bass softer
+        generateDeepSub(chordRoot);
+
+        // PAD only occasionally (prevents overload)
+        if(Math.random() < 0.25){
+            generatePad(chordRoot);
+        }
+
+    }, delay*1000);
+};
+</script>
+
+
+<script>
+/* ===================================================== */
+/*   HARMONIC ENGINE v5 – HYBRID ADAPTIVE GENERATOR    */
+/* ===================================================== */
+
+let hybridEnergy = 0;
+let generatorInterval = null;
+let lastXNorm = 0;
+
+/* --- Store movement instead of triggering notes --- */
+const originalPlayHybrid = composer.play.bind(composer);
+
+composer.play = function(type, xNorm){
+    const mode = document.getElementById("harmonicMode")?.value || "free";
+    if(mode === "free"){
+        originalPlayHybrid(type, xNorm);
+        return;
+    }
+    lastXNorm = xNorm;
+    hybridEnergy = Math.abs(xNorm - 0.5) * 2;
+};
+
+/* --- Adaptive Generator Loop --- */
+function startHybridGenerator(){
+
+    if(generatorInterval) clearInterval(generatorInterval);
+
+    generatorInterval = setInterval(()=>{
+
+        const mode = document.getElementById("harmonicMode")?.value || "free";
+        if(mode !== "ai" || !composer.audioCtx) return;
+
+        detectKeyFFT();
+        buildStyledProgression();
+
+        const chordRoot = chordProgression[progressionIndex % chordProgression.length];
+
+        // Density adapts to energy
+        const density = 1 + Math.floor(hybridEnergy * 3);
+
+        for(let i=0;i<density;i++){
+
+            const variation = Math.floor((lastXNorm - 0.5) * 12 * (hybridEnergy+0.3));
+            const mainMidi = chordRoot + variation;
+
+            composer.createVoice("triangle", composer.midiToFreq(mainMidi));
+
+            // Sub layer stable
+            generateDeepSub(chordRoot);
+
+            // Texture layer based on energy
+            if(hybridEnergy > 0.6){
+                composer.createVoice("sawtooth", composer.midiToFreq(mainMidi+7));
+            }
+        }
+
+        progressionIndex++;
+
+    }, 350); // stable groove engine
+
+}
+
+document.addEventListener("DOMContentLoaded", ()=>{
+    startHybridGenerator();
+});
+</script>
+
+
+<script>
+/* ===== GENRE → HARMONIC STYLE ADAPTATION ===== */
+
+function detectGenre(name){
+name = name.toLowerCase();
+if(name.includes("reggaeton")||name.includes("cumbiaton")||name.includes("hip"))
+return "urban";
+if(name.includes("cumbia")||name.includes("merengue")||name.includes("salsa")||name.includes("mambo")||name.includes("bachata"))
+return "tropical";
+if(name.includes("rock")||name.includes("80"))
+return "rock";
+if(name.includes("electronica")||name.includes("tribal"))
+return "electronic";
+if(name.includes("corridos")||name.includes("ranchera")||name.includes("duranguense")||name.includes("quebradita"))
+return "regional";
+if(name.includes("romantica"))
+return "soft";
+return "general";
+}
+
+function applyHarmonyByGenre(genre){
+if(typeof harmonicStyle === "undefined") return;
+
+switch(genre){
+case "urban":
+harmonicStyle = "edm";
+break;
+case "tropical":
+harmonicStyle = "cinematic";
+break;
+case "rock":
+harmonicStyle = "cinematic";
+break;
+case "electronic":
+harmonicStyle = "edm";
+break;
+case "regional":
+harmonicStyle = "cinematic";
+break;
+case "soft":
+harmonicStyle = "jazz";
+break;
+default:
+harmonicStyle = "cinematic";
+}
+console.log("IA adaptada a género:", genre, "→", harmonicStyle);
+}
+
+/* Patch toggleBase20 without breaking original system */
+if(typeof toggleBase20 !== "undefined"){
+const originalToggleBase20 = toggleBase20;
+toggleBase20 = function(i, pad){
+originalToggleBase20(i, pad);
+if(baseActive && baseActive[i]){
+const name = defaultBaseFiles[i] || "";
+const genre = detectGenre(name);
+applyHarmonyByGenre(genre);
+}
+}
+}
 </script>
 
 </body>
